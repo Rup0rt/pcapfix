@@ -1,0 +1,22 @@
+Installation Instructions
+*************************
+
+You do not need any futher packages.
+
+Basic Installation
+==================
+
+1. Compile pcapfix with the following command:
+
+	make
+
+2. Install the binary file
+
+	make install
+
+
+Troubleshooting
+===============
+
+If there are any problems compiling the program, please write an email
+to ruport@f00l.de and include your compiling error message.
