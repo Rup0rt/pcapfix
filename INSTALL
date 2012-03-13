@@ -15,6 +15,14 @@ Basic Installation
 	make install
 
 
+Uninstall
+=========
+
+To uninstall pcapfix just enter:
+
+	make uninstall
+
+
 Troubleshooting
 ===============
 

@@ -4,5 +4,8 @@ all:
 install:
 	cp pcapfix /usr/local/bin/
 
+uninstall:
+	rm -rf /usr/local/bin/pcapfix
+
 clean:
 	rm -rf pcapfix

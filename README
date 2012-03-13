@@ -1,4 +1,4 @@
-pcapfix v0.1 README
+pcapfix v0.2 README
 *******************
 
 Pcapfix is a tool to repair your damaged or corrupted pcap files. It is
@@ -19,4 +19,14 @@ requests or problems in compiling and execution to ruport@f00l.de.
 
 For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 
-   -- Robert Krause <ruport@f00l.de>
+USAGE
+=====
+
+./pcapfix [OPTIONS] filename
+OPTIONS:        -v, --verbose   Verbose output (default = 0)
+
+Verbosity
+.........
+
+You can use multiple -v options to increase verbosity.
+An verbosity of 2 will result in very much output data during package search.
