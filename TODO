@@ -2,4 +2,4 @@
 * recover / detect swapped data
 * more than 0xffff snaplen (huge packets)
 * option/argument to set data link type
-* recognize when a file seems to be no pcap file at all
+* windows compiling

@@ -260,7 +260,7 @@ int main(int argc, char *argv[]) {
 
     // get current file pointer position
     pos = ftell(pcap);
-  };
+  }
 
   // BEGIN BOTTOM UP RECOVERY
 
@@ -306,43 +306,51 @@ int main(int argc, char *argv[]) {
     }  // last known correct upper packet reached
 
     if (verbose) printf("\n");
-    else printf("[+] SUCCESS!\n");
 
-    // REBUILD DAMAGED PACKET HERE
+    // check if a correct lower packet has been found
+    if (last_correct_lower_pos-last_correct_upper_pos <= 65535) { // packet found
+      if (!verbose) printf("[+] SUCCESS!\n");
 
-    /* at this position we know the last correct upper packets postion and the
-       last correct lower packets position. the data between these two packets
-       MUST be a corrupted one. to not override any packet data we will fill in
-       a new pcap packet header with correct data and keep on writing the proper
-       packets
-    */
+      // REBUILD DAMAGED PACKET HERE
 
-    // build the new header of the corrupted packet
-    packet_hdr.ts_sec = last_correct_ts_sec;					// timestamp is equal to the upper packet
-    packet_hdr.ts_usec = last_correct_ts_usec+1;				// microseconds + 1, just to show the packet has been captured later
-    packet_hdr.incl_len = last_correct_lower_pos-last_correct_upper_pos;	// capture size is the size between the last correct upper and lower packets position
-    packet_hdr.orig_len = last_correct_lower_pos-last_correct_upper_pos;	// we do not know the original size, we set it to capture size thou
-    if (verbose) printf("[+] RECOVERED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, last_correct_upper_pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
-    count++;	// count the corrupted packet too
+      /* at this position we know the last correct upper packets postion and the
+         last correct lower packets position. the data between these two packets
+         MUST be a corrupted one. to not override any packet data we will fill in
+         a new pcap packet header with correct data and keep on writing the proper
+         packets
+      */
 
-    // write repaired packet to output file
-    fseek(pcap, last_correct_upper_pos, SEEK_SET);		// set input file pointer to the beginning of the corrupted data
-    fread(&buffer, packet_hdr.incl_len, 1, pcap);		// read the corrupted data as packet body as a whole
-    fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write self-builded packet header to output file
-    fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);		// write corrupted packet data as new repaired packet body to output file
+      // build the new header of the corrupted packet
+      packet_hdr.ts_sec = last_correct_ts_sec;					// timestamp is equal to the upper packet
+      packet_hdr.ts_usec = last_correct_ts_usec+1;				// microseconds + 1, just to show the packet has been captured later
+      packet_hdr.incl_len = last_correct_lower_pos-last_correct_upper_pos;	// capture size is the size between the last correct upper and lower packets position
+      packet_hdr.orig_len = last_correct_lower_pos-last_correct_upper_pos;	// we do not know the original size, we set it to capture size thou
+      if (verbose) printf("[+] RECOVERED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, last_correct_upper_pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+      count++;	// count the corrupted packet too
 
-    // continue writing the proper packets from below to output file
-    pos = ftell(pcap);	// get current file pointer position
-    for (; fread(&packet_hdr, sizeof(packet_hdr), 1, pcap) > 0; count++) {	// just keep on reading the packets from input file
-      if (verbose) printf("[+] Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+      // write repaired packet to output file
+      fseek(pcap, last_correct_upper_pos, SEEK_SET);		// set input file pointer to the beginning of the corrupted data
+      fread(&buffer, packet_hdr.incl_len, 1, pcap);		// read the corrupted data as packet body as a whole
+      fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write self-builded packet header to output file
+      fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);		// write corrupted packet data as new repaired packet body to output file
 
-      // we do not need any further checks here ( hopefully ;-) ) because the bottom-up-check already did it
-      fread(&buffer, packet_hdr.incl_len, 1, pcap);		// read packet body from input file
-      fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
-      fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);	// write packet body to output file
+      // continue writing the proper packets from below to output file
+      pos = ftell(pcap);	// get current file pointer position
+      for (; fread(&packet_hdr, sizeof(packet_hdr), 1, pcap) > 0; count++) {	// just keep on reading the packets from input file
+        if (verbose) printf("[+] Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
 
-      // get current file pointer position
-      pos = ftell(pcap);
+        // we do not need any further checks here ( hopefully ;-) ) because the bottom-up-check already did it
+        fread(&buffer, packet_hdr.incl_len, 1, pcap);		// read packet body from input file
+        fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
+        fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);	// write packet body to output file
+
+        // get current file pointer position
+        pos = ftell(pcap);
+      }
+
+    } else { // no lower correct packet found
+      printf("[-] FAILED!\n");
+      pkt_integ = 9999;	// set packet failure value very high
     }
 
   } // END BOTTOM UP RECOVERY
@@ -356,7 +364,14 @@ int main(int argc, char *argv[]) {
   // evaluate result
   if ((hdr_integ+pkt_integ) == 0) {	// check allover failure / integrity count ( 0 == no corruption )
     printf("\nYour pcap file looks proper. Nothing to fix!\n\n");
-    remove(filename_fix);
+    remove(filename_fix);	// delete output file due to nothing changed
+  } else if (pkt_integ == 9999) {	// check vor very high packet failure value ==> no recovery possible
+    if (count == 1) {	// if count == 1 then even the first packet was corrupted and no other packet could be found
+      printf("\nThis file does not seem to be a pcap file!\n\n");
+    } else {	// the first packet was intact, but recovery is not possible nevertheless
+      printf("\nUnable to recover pcap file.\n\n");
+    }
+    remove(filename_fix);	// delete output file due to repair impossible
   } else {	// if anything had to be corrected
     printf("\nYour pcap file has been successfully repaired.\n");
     printf("Wrote %u packets to file %s.\n\n", count-1, filename_fix);
