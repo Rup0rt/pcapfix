@@ -1,6 +1,16 @@
 pcapfix Changelog
 *****************
 
+0.6 - 20.05.2012
+----------------
+* added deep scan option (-d) to force packet detection inside the whole file
+* detects ascii-corruption in pcap header (unix->win)
+* improved global header and packet checks (0 <= usec <= 1000000)
+* repair files that first packet is entirely corrupted
+* repair oversized packets
+* improved last packet mismatch correction
+* fixed reading packets over EOF
+
 0.5 - 05.05.2012
 ----------------
 * repair files that packets were not saved chronologically
