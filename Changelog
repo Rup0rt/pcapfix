@@ -1,10 +1,12 @@
 pcapfix Changelog
 *****************
 
-0.3 - 
+0.3 - 31.03.2012
 ----------------
 * when recovering packets size will be checked to be smaller than 65536
 * added recognition when a file does not seem to be a pcap file at all
+* compiles on windows systems properly now (tested with dev-cpp)
+* added option to manually select data link type
 
 0.2 - 11.03.2012
 ----------------

@@ -1,5 +1,2 @@
-* see: http://v2.nat32.com/pcap.htm
-* recover / detect swapped data
-* more than 0xffff snaplen (huge packets)
-* option/argument to set data link type
-* windows compiling
+* recover / detect swapped data (need swaped pcap for testing)
+* more than 0xffff snaplen (huge packets) (need oversized packet pcap for testing)

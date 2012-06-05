@@ -4,7 +4,7 @@
  * Copyright (c) 2012 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 10.03.2012
+ * Last Modified: 31.03.2012
  *
  * Command line: pcapfix [-v] <pcap_file>
  *
@@ -17,7 +17,9 @@
  *
  ******************************************************************************/
 
-#define _GNU_SOURCE     // we need this line to get the correct basename function (on 64bit systems)
+#ifdef __linux__
+  #define _GNU_SOURCE     // we need this line to get the correct basename function on linux systems
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -25,7 +27,7 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#define VERSION "0.2"		// pcapfix version
+#define VERSION "0.3"		// pcapfix version
 #define PCAP_MAGIC 0xa1b2c3d4	// the magic of the pcap global header (non swapped)
 
 // Global header (http://v2.nat32.com/pcap.htm)
@@ -51,8 +53,9 @@ struct packet_hdr_s {
 // IN: progname - the program name
 void usage(char *progname) {
   printf("Usage: %s [OPTIONS] filename\n", progname);
-  printf("OPTIONS:", progname);
-  printf("\t-v, --verbose\tVerbose output\n", progname);
+  printf("OPTIONS:");
+  printf(  "\t-t <nr>, --data-link-type <nr>\tData link type\n");
+  printf("\t\t-v     , --verbose            \tVerbose output\n");
   printf("\n");
 }
 
@@ -73,11 +76,13 @@ int main(int argc, char *argv[]) {
   int c;					// loop counter
   int option_index = 0;				// getopt_long option index
 
+  int data_link_type = 1;			// data link type (default: LINKTYPE_ETHERNET)
   int verbose = 0;				// verbose output option (default: dont be verbose)
 
   // init getopt_long options struct
   struct option long_options[] = {
-    {"verbose", no_argument, 0, 'v'},		// --verbose == -v
+    {"data-link-type", required_argument, 0, 't'},		// --data-link-type == -t
+    {"verbose", no_argument, 0, 'v'},				// --verbose == -v
     {0, 0, 0, 0}
   };
 
@@ -85,13 +90,16 @@ int main(int argc, char *argv[]) {
   printf("pcapfix %s (c) 2012 Robert Krause\n\n", VERSION);
 
   // scan for options and arguments
-  while ((c = getopt_long(argc, argv, ":v::", long_options, &option_index)) != -1) {
+  while ((c = getopt_long(argc, argv, ":t:v::", long_options, &option_index)) != -1) {
     switch (c) {
       case 0:	// getopt_long options evaluation
         long_options[option_index].flag;
         break;
       case 'v':	// verbose
         verbose++;
+        break;
+      case 't':	// data link type
+        data_link_type = atoi(optarg);
         break;
       case '?': // unknown option
         usage(argv[0]);
@@ -119,9 +127,16 @@ int main(int argc, char *argv[]) {
   }
 
   // open output file
-  char filename_fix[strlen((char*)basename(filename))+6];	// size of outputfile depends on inputfile's length
-  strcpy(filename_fix, "fixed_");				// outputfile = fixed_ + inputfile
-  strcat(filename_fix, (char*)basename(filename));
+  // we need to extract the basename first (windows and linux use different functions)
+  char filebname[strlen(filename)];
+  #ifdef __WIN32__
+    _splitpath(filename, NULL, NULL, filebname, NULL);
+  # else
+    strcpy(filebname, basename(filename));
+  #endif
+  char filename_fix[strlen(filebname)+6];	// size of outputfile depends on inputfile's length
+  strcpy(filename_fix, "fixed_");		// outputfile = fixed_ + inputfile
+  strcat(filename_fix, filebname);
   printf("[*] Writing to file: %s\n", filename_fix);
   pcap_fix = fopen(filename_fix, "w");
   if (!pcap_fix) {
@@ -195,7 +210,14 @@ int main(int argc, char *argv[]) {
   } else {
     hdr_integ++;
     if (verbose) printf("[-] Data link type: %u\n", global_hdr.network);
-    global_hdr.network = 1;	// if this field is corrupted, we guess it is 1 (IEEE 802.3 Ethernet)
+    // if data link type is corrupt, we set it to ethernet (user supplied param will be processed later)
+    global_hdr.network = 1;
+  }
+
+  // does the user forces a self-supplied data link type? if yes... change global header
+  if (data_link_type != 1) {
+    printf("[+] Changing data link type to %d.\n", data_link_type);
+    global_hdr.network = data_link_type;
   }
 
   // evaluate the integrity of the global header
@@ -210,6 +232,7 @@ int main(int argc, char *argv[]) {
   } else { // there have been corrupted fields (less than six) --> header is corrupted
     printf("[-] The global pcap header seems to corrupt! ==> CORRECTED\n");
   }
+
   // write the (maybe fixed) global header to output file
   fwrite(&global_hdr, sizeof(global_hdr), 1, pcap_fix);
 
@@ -219,7 +242,7 @@ int main(int argc, char *argv[]) {
 
   printf("[*] Analyzing packets...\n");
 
-  pkt_integ = 0;
+  pkt_integ = 0;	// reset packet integrity counter
   pos = ftell(pcap);	// get current file pointer position
 
   /* this loop iterates the packets from top till down by checking the
@@ -363,8 +386,12 @@ int main(int argc, char *argv[]) {
 
   // evaluate result
   if ((hdr_integ+pkt_integ) == 0) {	// check allover failure / integrity count ( 0 == no corruption )
-    printf("\nYour pcap file looks proper. Nothing to fix!\n\n");
-    remove(filename_fix);	// delete output file due to nothing changed
+    if (data_link_type == 1) { // data link type has not been changed
+      printf("\nYour pcap file looks proper. Nothing to fix!\n\n");
+      remove(filename_fix);	// delete output file due to nothing changed
+    } else { // the user forces a new data link type, then we dont remove the file even if no corruption was detected
+      printf("\nYour pcap file looks proper. Only data link type has been changed.\n\n");
+    }
   } else if (pkt_integ == 9999) {	// check vor very high packet failure value ==> no recovery possible
     if (count == 1) {	// if count == 1 then even the first packet was corrupted and no other packet could be found
       printf("\nThis file does not seem to be a pcap file!\n\n");
