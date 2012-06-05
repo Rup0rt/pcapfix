@@ -1,2 +1,3 @@
+* repair ascii-transfered pcap files (dos converted)
 * recover / detect swapped data (need swaped pcap for testing)
 * more than 0xffff snaplen (huge packets) (need oversized packet pcap for testing)

@@ -1,6 +1,12 @@
 pcapfix Changelog
 *****************
 
+0.4 - 27.04.2012
+----------------
+* completely redesigned packet detection algorithm (replaced bottom-up-recovery with brute-force-packet-guessing)
+* improved detection rate by additional plausability checks
+* increased speed when repairing large pcap files
+
 0.3 - 31.03.2012
 ----------------
 * when recovering packets size will be checked to be smaller than 65536

@@ -1,4 +1,4 @@
-pcapfix v0.3 README
+pcapfix v0.4 README
 *******************
 
 Pcapfix is a tool to repair your damaged or corrupted pcap files. It is
@@ -10,9 +10,7 @@ no global header at all, pcapfix adds a self-created one at the beginning
 of the file. In a second step the tool tries to find pcap packet headers
 inside the file, below the global header. It checks if the values are
 correct (or seem to be correct) and tries to repair a packet if there is
-something wrong. Therefore it grabs the packets from below (the end of
-the file) and will generate a new correct packet header at the packet that
-is corrupted.
+something wrong. 
 
 This tool is still in development! Please send any further wishes, feature
 requests or problems in compiling and execution to ruport@f00l.de.
