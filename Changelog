@@ -1,6 +1,15 @@
 pcapfix Changelog
 *****************
 
+0.5 - 05.05.2012
+----------------
+* repair files that packets were not saved chronologically
+* detect and repair overlapping packets
+* detect and repair cut-off pcap files
+* detect and repair ascii-mode transfered pcap files (pcap headers only!)
+* added progress bar
+* added man-page
+
 0.4 - 27.04.2012
 ----------------
 * completely redesigned packet detection algorithm (replaced bottom-up-recovery with brute-force-packet-guessing)

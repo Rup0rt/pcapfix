@@ -4,7 +4,7 @@
  * Copyright (c) 2012 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 27.04.2012
+ * Last Modified: 05.05.2012
  *
  * Command line: pcapfix [-v] [-t link_type] <pcap_file>
  *
@@ -35,7 +35,7 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#define VERSION "0.4"		// pcapfix version
+#define VERSION "0.5"		// pcapfix version
 #define PCAP_MAGIC 0xa1b2c3d4	// the magic of the pcap global header (non swapped)
 
 // Global header (http://v2.nat32.com/pcap.htm)
@@ -57,6 +57,7 @@ struct packet_hdr_s {
         unsigned int orig_len;       /* actual length of packet */
 };
 
+// usage()
 // print out the usage information
 // IN: progname - the program name
 void usage(char *progname) {
@@ -67,24 +68,85 @@ void usage(char *progname) {
   printf("\n");
 }
 
+/* check_header()
+   check if the pcap packet header could be a plausible one by satisfying those conditions:
+   ==> packet size >= 16 bytes AND <= 65535 bytes (included length AND original length)
+   ==> included length <= original lenth
+   ==> packet timestamp is NOT older OR younger than the prior packets timestamp -+ one day
+   IN: hdr - packet to check
+   IN: priot_ts - the prior packets timestamp
+   OUT: 0 - if packet is correct
+   OUT: >0 - the plausability check that failed
+*/
+int check_header(struct packet_hdr_s hdr, unsigned int prior_ts) {
+  // check for minimal packet size
+  if (hdr.incl_len < 16) return(1);
+  if (hdr.orig_len < 16) return(2);
+
+  // check max maximal packet size
+  if (hdr.incl_len > 65535) return(3);
+  if (hdr.orig_len > 65535) return(4);
+
+  // the included lenth CAN NOT be larger than the original length
+  if (hdr.incl_len > hdr.orig_len) return(5);
+
+  // packet is not older than one day
+  if ((prior_ts != 0) && (hdr.ts_sec > prior_ts+86400)) return(6);
+
+  // packet is not younger than one day
+  if ((prior_ts >= 86400) && (hdr.ts_sec < prior_ts-86400)) return(7);
+
+  // everything fine!
+  return(0);
+}
+
+// print_progress()
+// prints the progess bar
+// IN: pos - the current filepointer position
+// IN: filesize - the size of the file
+void print_progress(unsigned long pos, unsigned long filesize) {
+  int i;		// loop counter
+  float percentage;	// pencentage variable
+
+  // calculate the current percentage of file analyzing progress
+  percentage = (float)pos/(float)filesize;
+
+  // print the first part of the line including percentage output
+  printf("[*] Progress: %5.2f %% [", percentage*100);
+
+  // output progress bar (width = 50 chars)
+  for (i=1; i<=percentage*50 ;i++) printf("=");	// calculate and output "="-signs
+  printf(">");					// output arrow peak
+  for (i=percentage*50; i<50; i++) printf(" ");	// calculate and output spaces
+
+  // clear the line and carriage return
+  printf("]\n\033[F\033[J");
+}
+
+// main()
+// IN: argc - number of cmd line args
+// IN: argv - array of cmd line args
+// OUT: always zero
 int main(int argc, char *argv[]) {
   FILE *pcap, *pcap_fix;			// input and output file
   struct global_hdr_s global_hdr;		// global header data
   struct packet_hdr_s packet_hdr;		// packet header data
+  struct packet_hdr_s next_packet_hdr;		// next packet header data to look forward
   char buffer[65535];				// the packet body
 
-  unsigned long pos;				// position of file pointer
+  unsigned long pos = 0;			// position of current packet header
+  unsigned long nextpos = 0;			// possible position of next packets header
+  unsigned long filesize;			// file size
   unsigned int count;				// packet counter
   unsigned int last_correct_ts_sec = 0;		// timestamp of the last proper packet found (seconds)
   unsigned int last_correct_ts_usec = 0;	// timestamp of the last proper packet found (microseconds)
-  unsigned long last_correct_upper_pos = 0;	// lower file pointer position of proper packet
-  unsigned long last_correct_lower_pos;		// upper file pointer position of proper packet
-  unsigned short hdr_integ, pkt_integ;		// integrity counter of global header of packet header
-  unsigned short corrupted = 0;			// corrupted packet counter for final output
-  int size;					// size counter to guess packet length
+  unsigned short hdr_integ;			// integrity counter of global header
   int c;					// loop counter
   int option_index = 0;				// getopt_long option index
+  int ascii = 0;				// ascii counter for possible ascii-corrupted packets
+  int corrupted = 0;			// corrupted packet counter for final output
 
+  // configuration variables
   int data_link_type = 1;			// data link type (default: LINKTYPE_ETHERNET)
   int verbose = 0;				// verbose output option (default: dont be verbose)
 
@@ -154,6 +216,12 @@ int main(int argc, char *argv[]) {
   }
 
   // BEGIN OF GLOBAL HEADER CHECK
+
+  // get file size
+  fseek(pcap, 0, SEEK_END);
+  filesize = ftell(pcap);
+
+  fseek(pcap, 0, SEEK_SET);
 
   printf("[*] Analyzing global header...\n");
   fread(&global_hdr, sizeof(global_hdr), 1, pcap);	// read first bytes of input file into struct
@@ -249,148 +317,171 @@ int main(int argc, char *argv[]) {
 
   // BEGIN PACKET CHECK
 
-  if (verbose) printf("[*] Analyzing packets...\n");
-  else printf("[*] Analyzing packets: ");
-
-  pkt_integ = 0;	// reset packet integrity counter
-  pos = ftell(pcap);	// get current file pointer position
+  printf("[*] Analyzing packets...\n");
 
   /* this loop iterates the packets from top till down by checking the
      pcap packet headers on plausibility. if any packet header has got
      implausible information the packet will be handled as corrupted
-     and pcapfix will move into brute-force mode.
+     and pcapfix will brute force the next packet. if the packet header
+     look plausible, pcapfix will check if the next packet is aligned and
+     if not check for overlapping packets.
   */
 
-  for (count=1; fread(&packet_hdr, sizeof(packet_hdr), 1, pcap) > 0; count++) {	// read the next packet header based on current file pointer
+  pos = ftell(pcap);	// get current file pointer position
 
-    /* which data is NOT plausible for packet headers?
-         ==> packet capture size (incl_len) is larger than 65535 bytes (no huge packet support yet!)
-         ==> packet timestamp is smaller than the previous packet's one (packets must build an conclusive time line)
-	 ==> packet timestamp is one day (86400 seconds) older than the privous packet's one
-         ==> packet capture size is larger than original packet size
-    */
+  // loop the pcap files packets until pos has reacher end of file
+  for (count=1; pos < filesize; count++) {
 
-    if ((packet_hdr.incl_len <= 65535) && (packet_hdr.ts_sec >= last_correct_ts_sec) && ((last_correct_ts_sec == 0) || (packet_hdr.ts_sec <= last_correct_ts_sec+86400)) && (packet_hdr.incl_len <= packet_hdr.orig_len)) {	// packet header seems to be fine
+    // we only want the progress bar to be printed in non-verbose mode
+    if (verbose == 0) print_progress(pos, filesize);
 
-      if (verbose) printf("[+] Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
-      else printf(".");
-      fread(&buffer, packet_hdr.incl_len, 1, pcap);		// read packet body
+    // read the next packet header
+    fread(&packet_hdr, sizeof(packet_hdr), 1, pcap);
+
+    // check if the packet header looks proper
+    if (check_header(packet_hdr, last_correct_ts_sec) == 0) {
+
+      // CUT OF LAST PACKET DETECTION
+
+      // try to read the whole packet body
+      if (fread(&buffer, packet_hdr.incl_len, 1, pcap) == 0) {
+	// fread returned an error ==> we requested more data than the file has
+	// thou the last packet has been cut of
+        if (verbose >= 1) printf("[-] File has been cut off! ==> CORRECTING LAST PACKET\n");
+
+	// correct the packets included length field to match the end of file
+        packet_hdr.incl_len = filesize-pos-16;
+
+	// print out information
+        printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+	corrupted++;
+      }
+
+      // OVERLAPPING DETECTION
+      // we do ONLY scan for overlapping if next packet is NOT aligned
+
+      // read next packet header
+      fread(&next_packet_hdr, sizeof(next_packet_hdr), 1, pcap);
+
+      // check if next packets header looks proper
+      if (check_header(next_packet_hdr, packet_hdr.ts_sec) != 0) {
+
+        // the next packets header is corrupted thou we are going to scan through the prior packets body to look for an overlapped packet header
+        for (nextpos=pos+16+1; nextpos < pos+16+packet_hdr.incl_len+32; nextpos++) {	// also look inside the next packets header + 16bytes of packet body, because we need to know HERE
+
+          // read the possible next packets header
+          fseek(pcap, nextpos, SEEK_SET);
+          fread(&next_packet_hdr, sizeof(next_packet_hdr), 1, pcap);
+
+          // heavy verbose output :-)
+          if (verbose >= 2) printf("[*] Trying Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, next_packet_hdr.ts_sec, next_packet_hdr.ts_usec, next_packet_hdr.incl_len, next_packet_hdr.orig_len);
+
+          // check the header for plausibility
+          if (check_header(next_packet_hdr, last_correct_ts_sec) == 0) {
+
+            // we found a proper header inside the packets body!
+            if (verbose >= 1) printf("[-] FOUND OVERLAPPING data of Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, next_packet_hdr.ts_sec, next_packet_hdr.ts_usec, next_packet_hdr.incl_len, next_packet_hdr.orig_len);
+
+            // correct the prior packets length information fields to align the overlapped packet
+            packet_hdr.incl_len = nextpos-(pos+16);
+            packet_hdr.orig_len = packet_hdr.incl_len;
+
+            // print out information
+            printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+            corrupted++;
+
+            // overlapping seems to be a result of ascii-transfered pcap files via FTP
+            ascii++;
+
+            break;
+          }
+        }
+      }
+
+      // reset file fointer to next packet
+      fseek(pcap, pos+16+packet_hdr.incl_len, SEEK_SET);
+
+      // we found a correct packet (and aligned it maybe)
+      if (verbose >= 1) printf("[+] Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+
+      // write last packet
       fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
       fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);	// write packet body to output file
 
-      // remember that this packet (timestamp + position) was the last found correct one
+      // remember that this packets timestamp to evaluate futher timestamps
       last_correct_ts_sec = packet_hdr.ts_sec;
       last_correct_ts_usec = packet_hdr.ts_usec;
-      last_correct_upper_pos = pos+packet_hdr.incl_len+16;
 
-    } else {	// packet header is corrupted
+    } else {
 
-      pkt_integ++;
+      // PACKET IS CORRUPT
 
-      // break here because we found a corrupted packet that needs to be recovered
-      break;
+      if (verbose >= 1) printf("[-] CORRUPTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
 
-    }
+      // scan from the current position to the maximum packet size and look for a next proper packet header to align the corrupted packet
+      for (nextpos=pos+16+1; nextpos < pos+16+65535; nextpos++) {
 
-    // get current file pointer position
-    pos = ftell(pcap);
-  }
+        // read the possible next packets header
+	fseek(pcap, nextpos, SEEK_SET);
+        fread(&next_packet_hdr, sizeof(next_packet_hdr), 1, pcap);
 
-  // get end of file
-  fseek(pcap, 0, SEEK_END);
-  last_correct_lower_pos = ftell(pcap);
+        // heavy verbose output :-)
+        if (verbose >= 2) printf("[*] Trying Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, next_packet_hdr.ts_sec, next_packet_hdr.ts_usec, next_packet_hdr.incl_len, next_packet_hdr.orig_len);
 
-  // BEGIN PACKET RECOVERY
+        // check if next packets header looks proper
+        if (check_header(next_packet_hdr, last_correct_ts_sec) == 0) {
 
-  // start search for next proper packet at the last correct one's position
-  fseek(pcap, last_correct_upper_pos, SEEK_SET);
+          // we found the NEXT packets header, now we are able to align the corrupted packet
+          if (verbose >= 1) printf("[+] FOUND NEXT Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, next_packet_hdr.ts_sec, next_packet_hdr.ts_usec, next_packet_hdr.incl_len, next_packet_hdr.orig_len);
 
-  // main packet recovery loop
-  // we scan the pcap file byte by byte for a plausible pcap packet header
-  // after finding one we know the area and size of the corrupted packet and will fix it by adding a new well-formed pcap packet header
-  for(pos = ftell(pcap); pos < last_correct_lower_pos; pos++) {       // iterate through the last known correct upper position has been reached
-    fseek(pcap, pos, SEEK_SET);                       // set the file pointer
-    fread(&packet_hdr, sizeof(packet_hdr), 1, pcap);  // read in the possible packet header
+          // correct the corrupted pcap packet header to match the just found next packet header
+	  packet_hdr.incl_len = nextpos-(pos+16);
+	  packet_hdr.orig_len = packet_hdr.incl_len;
+	  packet_hdr.ts_sec = last_correct_ts_sec;
+	  packet_hdr.ts_usec = last_correct_ts_usec+1;
 
-    // check whether the corruptd packet's size is larger than 65535
-    // because those packets are impossible, we assume that the file can not be repaired
-    if (pos-last_correct_upper_pos > 65535) {
-      pkt_integ = 9999;	// set packet failure value very high
-      break;
-    }
+          // read the packets body (size based on the just found next packets position)
+          fseek(pcap, pos+16, SEEK_SET);
+          fread(&buffer, packet_hdr.incl_len, 1, pcap);
 
-    // very heavy verbose output :-)
-    if (verbose >= 2) printf("[*] Trying position %ld (%u | %u | %u | %u).\n", pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+          // write repaired packet header and packet body
+          fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
+          fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);	// write packet body to output file
 
-    /* check if the just read pcap packet header could be a plausible one by satisfying those conditions:
-	==> packet size >= 54 bytes AND <= 65535 bytes
-	==> packet length == included packet length (this might be a problem when capturing small packet sizes - we will have to fix it later thou)
-	==> packet timestamp >= last packet's timestamp AND not not older than one day after the last packet's timestamp
-    */
-    if ((packet_hdr.incl_len >= 54) && (packet_hdr.incl_len <= 65535) && (packet_hdr.incl_len == packet_hdr.orig_len) && (packet_hdr.ts_sec >= last_correct_ts_sec) && (packet_hdr.ts_sec <= last_correct_ts_sec+86400)) {       // seems to be a correct packet header
+          // remember that this packets timestamp to evaluate futher timestamps
+          last_correct_ts_sec = packet_hdr.ts_sec;
+          last_correct_ts_usec = packet_hdr.ts_usec;
 
-      // did we miss some bytes?? if yes, the previous data is an corrupted packet
-      if (pos != last_correct_upper_pos) {
+          // print out information
+          printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+	  corrupted++;
 
-	// IMPLEMENT LATER!
-	// WHAT IF A PACKET'S SIZE IS SMALLER THAN 54 ??
-	// WE NEED TO PAD / SKIP / RESTORE THIS AREA
-
-	// create the new pcap packet header of the corrupted packet with proper information
-        packet_hdr.ts_sec = last_correct_ts_sec;		// timestamp is equal to the upper packet
-        packet_hdr.ts_usec = last_correct_ts_usec+1;		// microseconds + 1, just to show the packet has been captured later
-        packet_hdr.incl_len = pos-last_correct_upper_pos;	// capture size is the size between the last correct upper and lower packets position
-        packet_hdr.orig_len = pos-last_correct_upper_pos;	// we do not know the original size, we set it to capture size thou
-
-        if (verbose) printf("[+] RECOVERED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, last_correct_upper_pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
-	else printf("+");
-        count++;	// count this packet as processed
-	corrupted++;	// count this packet also as corrupted
-
-	// read the corrupted packet' body and write the new header + body into fixed pcap file
-        fseek(pcap, last_correct_upper_pos, SEEK_SET);		// set the file pointer
-        fread(&buffer, packet_hdr.incl_len, 1, pcap);		// read the corrupted data as packet body as a whole
-        fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write self-builded packet header to output file
-        fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);	// write corrupted packet data as new repaired packet body to output file
+          break;
+        }
 
       }
 
-      // continue processing the found proper pcap packet
+      // did the counter exceed the maximum packet size?
+      if (nextpos >= pos+16+65535) {
 
-      // write proper packet to output file
-      fseek(pcap, pos, SEEK_SET);				// set input file pointer to the beginning of the corrupted data
-      fread(&packet_hdr, sizeof(packet_hdr), 1, pcap);  	// read in the possible packet header
-      fread(&buffer, packet_hdr.incl_len, 1, pcap);		// read the corrupted data as packet body as a whole
-      fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write self-builded packet header to output file
-      fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);	// write corrupted packet data as new repaired packet body to output file
+        // PACKET COULD NOT BE REPAIRED!
 
-      if (verbose) printf("[+] Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
-      else printf(".");
-      count++;	// count this packet as processed
-
-      // remember that this packet (timestamp + position) was the last found correct one
-      last_correct_ts_sec = packet_hdr.ts_sec;
-      last_correct_ts_usec = packet_hdr.ts_usec;
-      last_correct_upper_pos = pos+packet_hdr.incl_len+16;
-
-      // increase postion by packet body because we do not need to scan for pcap packets there
-      // +16 for the pcap packet header (-1 here because +1 will be done by loop iteration)
-      pos += packet_hdr.incl_len+15;
+        if (verbose >= 1) printf("[-] Cannot align corrupted packet! \n");
+        break;
+      }
 
     }
 
-  }  // last known correct upper packet reached
+    pos = ftell(pcap);	// get current file pointer position
 
-  if (!verbose) printf("\n");
-
-  // END PACKET RECOVERY
+  }
 
   // did we reach the end of pcap file?
-  if (pos == last_correct_lower_pos) { // yes ==> all data processed == SUCCESS
+  if (pos == filesize) { // yes ==> all data processed == SUCCESS
     printf("[+] Success!\n\n");
   } else { // no ==> data missing == FAILED
     printf("[-] Failed!\n\n");
-    pkt_integ = 9999;	// set packet failure value very high
+    corrupted = -1;	// the file could not be repaired
   }
 
   // END PACKET CHECK
@@ -400,14 +491,14 @@ int main(int argc, char *argv[]) {
   fclose(pcap_fix);
 
   // evaluate result
-  if ((hdr_integ+pkt_integ) == 0) {	// check allover failure / integrity count ( 0 == no corruption )
+  if ((hdr_integ == 0) && (corrupted == 0)) {	// check allover failure / integrity count and corrupted counter
     if (data_link_type == 1) { 	// data link type has not been changed
       printf("Your pcap file looks proper. Nothing to fix!\n\n");
       remove(filename_fix);	// delete output file due to nothing changed
     } else { // the user forces a new data link type, then we dont remove the file even if no corruption was detected
       printf("Your pcap file looks proper. Only data link type has been changed.\n\n");
     }
-  } else if (pkt_integ == 9999) {	// check vor very high packet failure value ==> no recovery possible
+  } else if (corrupted == -1) {	// check vor very high packet failure value ==> no recovery possible
     if (count == 1) {	// if count == 1 then even the first packet was corrupted and no other packet could be found
       printf("This file does not seem to be a pcap file!\n\n");
     } else {	// the first packet was intact, but recovery is not possible nevertheless
@@ -419,7 +510,15 @@ int main(int argc, char *argv[]) {
   } else {	// if anything had to be corrected
     printf("Your pcap file has been successfully repaired (%d corrupted packet(s)).\n", corrupted);
     printf("Wrote %u packets to file %s.\n\n", count-1, filename_fix);
+
+    // are there any packets that might have been transfered in ascii mode?
+    if (ascii) {
+      printf("This corruption seems to be a result of an ascii-mode transfered pcap file via FTP.\n");
+      printf("The pcap structure of those files can be repaired, but the data inside might still be corrupted!!!\n\n");
+    }
+
   }
 
   return(0);
 }
+

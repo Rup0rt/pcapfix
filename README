@@ -1,4 +1,4 @@
-pcapfix v0.4 README
+pcapfix v0.5 README
 *******************
 
 Pcapfix is a tool to repair your damaged or corrupted pcap files. It is
@@ -13,7 +13,8 @@ correct (or seem to be correct) and tries to repair a packet if there is
 something wrong. 
 
 This tool is still in development! Please send any further wishes, feature
-requests or problems in compiling and execution to ruport@f00l.de.
+requests or problems in compiling and execution to ruport@f00l.de. You may
+send me pcap files that could ne be repaired too in order to improve pcapfix!
 
 For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 
@@ -30,6 +31,17 @@ Verbosity
 
 You can use multiple -v options to increase verbosity.
 An verbosity of 2 will result in very much output data during package search.
+
+
+ASCII-mode transfered Files (FTP)
+.................................
+
+Pcapfix is able to repair pcap files that have been  transfered in ascii-mode via
+FTP. In those files a proper pcap structure will be created only to make them
+readable by wireshark etc. The data inside the packets (and some pcap headers)
+might still be corrupted. I am working on an algorithm to repair those files
+completely.
+
 
 Data Link Types
 ...............
