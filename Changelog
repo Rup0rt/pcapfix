@@ -1,6 +1,10 @@
 pcapfix Changelog
 *****************
 
+0.7 - 
+----------------
+* compiles on OpenBSD properly now
+
 0.6 - 20.05.2012
 ----------------
 * added deep scan option (-d) to force packet detection inside the whole file

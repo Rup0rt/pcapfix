@@ -34,8 +34,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <libgen.h>	// needed to compile on OpenBSD
 
-#define VERSION "0.6"		// pcapfix version
+#define VERSION "0.7"		// pcapfix version
 #define PCAP_MAGIC 0xa1b2c3d4	// the magic of the pcap global header (non swapped)
 
 // Global header (http://v2.nat32.com/pcap.htm)
