@@ -4,7 +4,7 @@
  * Copyright (c) 2012 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 20.05.2012
+ * Last Modified: 16.10.2012
  *
  * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
  *
@@ -29,12 +29,15 @@
   #define _GNU_SOURCE     // we need this line to get the correct basename function on linux systems
 #endif
 
+#ifdef OPENBSD
+  #include <libgen.h>	// needed to compile on OpenBSD
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <libgen.h>	// needed to compile on OpenBSD
 
 #define VERSION "0.7"		// pcapfix version
 #define PCAP_MAGIC 0xa1b2c3d4	// the magic of the pcap global header (non swapped)
@@ -248,7 +251,8 @@ int main(int argc, char *argv[]) {
 
   // open input file
   printf("[*] Reading from file: %s\n", filename);
-  pcap = fopen(filename, "r");
+  // binary mode necessary for win64, otherwise fread fails
+  pcap = fopen(filename, "rb");
   if (!pcap) {
     perror("[-] Cannot open input file");
     return(1);
@@ -631,7 +635,7 @@ int main(int argc, char *argv[]) {
       if (corrupted == -1) break;
 
       // did the counter exceed the maximum packet size?
-      if ((count == 1 && deep_scan == 0) && (nextpos > pos+16+65535)) {
+      if (deep_scan == 0 && (nextpos > pos+16+65535)) {
 
         // PACKET COULD NOT BE REPAIRED!
 
