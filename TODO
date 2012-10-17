@@ -1,4 +1,3 @@
-* recover / detect swapped data (need swaped pcap files for testing)
 * more than 0xffff snaplen (huge packets) (need oversized pcap files for testing) (do those packets even exist???)
 * ethernet frame check?
 * repair pcap based on ip chksum

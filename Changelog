@@ -6,6 +6,7 @@ pcapfix Changelog
 * compiles on OpenBSD properly now
 * fixed file pointer exception on windows64 systems
 * fixed detection bug when corrupted packet is larger than 65536 bytes
+* fixed minimal packet limit to cope with wlan traffic
 
 0.6 - 20.05.2012
 ----------------

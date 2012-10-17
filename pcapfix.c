@@ -4,7 +4,7 @@
  * Copyright (c) 2012 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 16.10.2012
+ * Last Modified: 17.10.2012
  *
  * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
  *
@@ -86,8 +86,10 @@ void usage(char *progname) {
 */
 int is_plausible(struct packet_hdr_s hdr, unsigned int prior_ts) {
   // check for minimum packet size
-  if (hdr.incl_len < 16) return(1);
-  if (hdr.orig_len < 16) return(2);
+  // minimum packet size should be 16, but in some cases, e.g. local wlan capture, packet might
+  // even be smaller --> decreased minimum size to 10
+  if (hdr.incl_len < 10) return(1);
+  if (hdr.orig_len < 10) return(2);
 
   // check max maximum packet size
   if (hdr.incl_len > 65535) return(3);
