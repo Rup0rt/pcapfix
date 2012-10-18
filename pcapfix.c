@@ -4,7 +4,7 @@
  * Copyright (c) 2012 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 17.10.2012
+ * Last Modified: 18.10.2012
  *
  * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
  *
@@ -42,6 +42,8 @@
 #define VERSION "0.7"		// pcapfix version
 #define PCAP_MAGIC 0xa1b2c3d4	// the magic of the pcap global header (non swapped)
 
+int swapped = 0;		// pcap file is swapped (big endian)
+
 // Global header (http://v2.nat32.com/pcap.htm)
 struct global_hdr_s {
         unsigned int magic_number;   	/* magic number */
@@ -73,6 +75,26 @@ void usage(char *progname) {
   printf("\n");
 }
 
+/* conshort()
+   converts a short variable to network byte order in case of swapped pcap file
+   IN: var - variable to convert
+   OUT: var in correct notation (swapped / non-swapped)
+*/
+unsigned short conshort(unsigned short var) {
+  if (swapped == 0) return(var);
+  return(htons(var));
+}
+
+/* conshort()
+   converts an integer variable to network byte order in case of swapped pcap file
+   IN: var - variable to convert
+   OUT: var in correct notation (swapped / non-swapped)
+*/
+unsigned int conint(unsigned int var) {
+  if (swapped == 0) return(var);
+  return(htonl(var));
+}
+
 /* is_plausible()
    check if the pcap packet header could be a plausible one by satisfying those conditions:
    ==> packet size >= 16 bytes AND <= 65535 bytes (included length AND original length) (conditions 1,2,3,4)
@@ -88,25 +110,25 @@ int is_plausible(struct packet_hdr_s hdr, unsigned int prior_ts) {
   // check for minimum packet size
   // minimum packet size should be 16, but in some cases, e.g. local wlan capture, packet might
   // even be smaller --> decreased minimum size to 10
-  if (hdr.incl_len < 10) return(1);
-  if (hdr.orig_len < 10) return(2);
+  if (conint(hdr.incl_len) < 10) return(1);
+  if (conint(hdr.orig_len) < 10) return(2);
 
   // check max maximum packet size
-  if (hdr.incl_len > 65535) return(3);
-  if (hdr.orig_len > 65535) return(4);
+  if (conint(hdr.incl_len) > 65535) return(3);
+  if (conint(hdr.orig_len) > 65535) return(4);
 
   // the included length CAN NOT be larger than the original length
-  if (hdr.incl_len > hdr.orig_len) return(5);
+  if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(5);
 
   // packet is not older than one day (related to prior packet)
-  if ((prior_ts != 0) && (hdr.ts_sec > prior_ts+86400)) return(6);
+  if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(6);
 
   // packet is not younger than one day (related to prior packet)
-  if ((prior_ts >= 86400) && (hdr.ts_sec < prior_ts-86400)) return(7);
+  if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(7);
 
   // usec (microseconds) must be > 0 AND <= 1000000
-  if (hdr.ts_usec < 0) return(8);
-  if (hdr.ts_usec > 1000000) return(9);
+  if (conint(hdr.ts_usec) < 0) return(8);
+  if (conint(hdr.ts_usec) > 1000000) return(9);
 
   // all conditions fullfilled ==> everything fine!
   return(0);
@@ -253,8 +275,7 @@ int main(int argc, char *argv[]) {
 
   // open input file
   printf("[*] Reading from file: %s\n", filename);
-  // binary mode necessary for win64, otherwise fread fails
-  pcap = fopen(filename, "rb");
+  pcap = fopen(filename, "r");
   if (!pcap) {
     perror("[-] Cannot open input file");
     return(1);
@@ -293,71 +314,74 @@ int main(int argc, char *argv[]) {
   // check for file's magic bytes ()
   if (global_hdr.magic_number == PCAP_MAGIC) {
     if (verbose) printf("[+] Magic number: 0x%x\n", global_hdr.magic_number);
+  } else if (global_hdr.magic_number == htonl(PCAP_MAGIC)) {
+    if (verbose) printf("[+] Magic number: 0x%x (SWAPPED)\n", global_hdr.magic_number);
+    swapped = 1;
   } else {
     hdr_integ++;
     if (verbose) printf("[-] Magic number: 0x%x\n", global_hdr.magic_number);
     global_hdr.magic_number = PCAP_MAGIC;
   }
 
-  // check for major version number
-  if (global_hdr.version_major == 2) {	// current major version is 2
-    if (verbose) printf("[+] Major version number: %hu\n", global_hdr.version_major);
+  // check for major version number (2)
+  if (conshort(global_hdr.version_major) == 2) {	// current major version is 2
+    if (verbose) printf("[+] Major version number: %hu\n", conshort(global_hdr.version_major));
   } else {
     hdr_integ++;
-    if (verbose) printf("[-] Major version number: %hu\n", global_hdr.version_major);
-    global_hdr.version_major = 2;
+    if (verbose) printf("[-] Major version number: %hu\n", conshort(global_hdr.version_major));
+    global_hdr.version_major = conshort(2);
   }
 
   // check for minor version number
-  if (global_hdr.version_minor == 4) {	// current minor version is 4
-    if (verbose) printf("[+] Minor version number: %hu\n", global_hdr.version_minor);
+  if (conshort(global_hdr.version_minor) == 4) {	// current minor version is 4
+    if (verbose) printf("[+] Minor version number: %hu\n", conshort(global_hdr.version_minor));
   } else {
     hdr_integ++;
-    if (verbose) printf("[-] Minor version number: %hu\n", global_hdr.version_minor);
-    global_hdr.version_minor = 4;
+    if (verbose) printf("[-] Minor version number: %hu\n", conshort(global_hdr.version_minor));
+    global_hdr.version_minor = conshort(4);
   }
 
   // check for GTM to local correction
-  if (global_hdr.thiszone == 0) {	// in practise time stamps are always in GTM, so the correction is always zero
-    if (verbose) printf("[+] GTM to local correction: %d\n", global_hdr.thiszone);
+  if (conshort(global_hdr.thiszone) == 0) {	// in practise time stamps are always in GTM, so the correction is always zero
+    if (verbose) printf("[+] GTM to local correction: %d\n", conint(global_hdr.thiszone));
   } else {
     hdr_integ++;
-    if (verbose) printf("[-] GTM to local correction: %d\n", global_hdr.thiszone);
-    global_hdr.thiszone = 0;
+    if (verbose) printf("[-] GTM to local correction: %d\n", conint(global_hdr.thiszone));
+    global_hdr.thiszone = conint(0);
   }
 
   // check for accuracy of timestamps
-  if (global_hdr.sigfigs == 0) {	// all capture tools set this to zero
-    if (verbose) printf("[+] Accuracy of timestamps: %u\n", global_hdr.sigfigs);
+  if (conint(global_hdr.sigfigs) == 0) {	// all capture tools set this to zero
+    if (verbose) printf("[+] Accuracy of timestamps: %u\n", conint(global_hdr.sigfigs));
   } else {
     hdr_integ++;
-    if (verbose) printf("[-] Accuracy of timestamps: %u\n", global_hdr.sigfigs);
-    global_hdr.sigfigs = 0;
+    if (verbose) printf("[-] Accuracy of timestamps: %u\n", conint(global_hdr.sigfigs));
+    global_hdr.sigfigs = conint(0);
   }
 
   // check for max packet length
-  if ((global_hdr.snaplen >=0) && (global_hdr.snaplen <= 65535)) {	// typically 65535 (no support for huge packets yet)
-    if (verbose) printf("[+] Max packet length: %u\n", global_hdr.snaplen);
+  if ((conint(global_hdr.snaplen) >= 0) && (conint(global_hdr.snaplen) <= 65535)) {	// typically 65535 (no support for huge packets yet)
+    if (verbose) printf("[+] Max packet length: %u\n", conint(global_hdr.snaplen));
   } else {
     hdr_integ++;
-    if (verbose) printf("[-] Max packet length: %u\n", global_hdr.snaplen);
-    global_hdr.snaplen = 65535;
+    if (verbose) printf("[-] Max packet length: %u\n", conint(global_hdr.snaplen));
+    global_hdr.snaplen = conint(65535);
   }
 
   // check for data link type (http://www.tcpdump.org/linktypes.html)
-  if ((global_hdr.network >= 0) && (global_hdr.network <= 245)) {	// data link types are >= 0 and <= 245
-    if (verbose) printf("[+] Data link type: %u\n", global_hdr.network);
+  if ((conint(global_hdr.network) >= 0) && (conint(global_hdr.network) <= 245)) {	// data link types are >= 0 and <= 245
+    if (verbose) printf("[+] Data link type: %u\n", conint(global_hdr.network));
   } else {
     hdr_integ++;
-    if (verbose) printf("[-] Data link type: %u\n", global_hdr.network);
+    if (verbose) printf("[-] Data link type: %u\n", conint(global_hdr.network));
     // if data link type is corrupt, we set it to ethernet (user supplied param will be processed later)
-    global_hdr.network = 1;
+    global_hdr.network = conint(1);
   }
 
   // does the user provides a self-supplied data link type? if yes... change global header
   if (data_link_type != 1) {
     printf("[+] Changing data link type to %d.\n", data_link_type);
-    global_hdr.network = data_link_type;
+    global_hdr.network = conint(data_link_type);
   }
 
   // evaluate the integrity of the global header
@@ -410,20 +434,20 @@ int main(int argc, char *argv[]) {
       fseek(pcap, pos+16, SEEK_SET);
 
       // try to read the packet body AND check if there are still at least 16 bytes left for the next pcap packet header
-      if ((fread(&buffer, packet_hdr.incl_len, 1, pcap) == 0) || ((filesize-(pos+16+res+packet_hdr.incl_len) > 0) && (filesize-(pos+16+res+packet_hdr.incl_len) < 16))) {
+      if ((fread(&buffer, conint(packet_hdr.incl_len), 1, pcap) == 0) || ((filesize-(pos+16+res+conint(packet_hdr.incl_len)) > 0) && (filesize-(pos+16+res+conint(packet_hdr.incl_len)) < 16))) {
 	// fread returned an error (EOL while read the body) or the file is not large enough for the next pcap packet header (16bytes)
 	// thou the last packet has been cut of
 
-        if (verbose >= 1) printf("[-] LAST PACKET MISMATCH (%u | %u | %u | %u)\n", packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+        if (verbose >= 1) printf("[-] LAST PACKET MISMATCH (%u | %u | %u | %u)\n", conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
 	// correct the packets included length field to match the end of file
-        packet_hdr.incl_len = filesize-pos-16;
+        packet_hdr.incl_len = conint(filesize-pos-16);
 
         // the original length must not be smaller than the included length
-        if (packet_hdr.incl_len > packet_hdr.orig_len) packet_hdr.orig_len = packet_hdr.incl_len;
+        if (conint(packet_hdr.incl_len) > conint(packet_hdr.orig_len)) packet_hdr.orig_len = packet_hdr.incl_len;
 
 	// print out information
-        printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+        printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 	corrupted++;
       }
 
@@ -434,50 +458,50 @@ int main(int argc, char *argv[]) {
       fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
 
       // check if next packets header looks proper
-      if (check_header(hdrbuffer, sizeof(hdrbuffer), packet_hdr.ts_sec, &next_packet_hdr) == -1) {
+      if (check_header(hdrbuffer, sizeof(hdrbuffer), conint(packet_hdr.ts_sec), &next_packet_hdr) == -1) {
 
         // the next packets header is corrupted thou we are going to scan through the prior packets body to look for an overlapped packet header
 	// also look inside the next packets header + 16bytes of packet body, because we need to know HERE
 	// do not leave the loop if the first packet has not been found yet AND deep scan mode is activated
-        for (nextpos=pos+16+1; (nextpos < pos+16+packet_hdr.incl_len+32) || (count == 1 && deep_scan == 1); nextpos++) {
+        for (nextpos=pos+16+1; (nextpos < pos+16+conint(packet_hdr.incl_len)+32) || (count == 1 && deep_scan == 1); nextpos++) {
 
           // read the possible next packets header
           fseek(pcap, nextpos, SEEK_SET);
           fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
 
           // heavy verbose output :-)
-          if (verbose >= 2) printf("[*] Trying Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, next_packet_hdr.ts_sec, next_packet_hdr.ts_usec, next_packet_hdr.incl_len, next_packet_hdr.orig_len);
+          if (verbose >= 2) printf("[*] Trying Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
           // check the header for plausibility
 	  res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &next_packet_hdr);
           if (res != -1) {
 
             // we found a proper header inside the packets body!
-            if (verbose >= 1) printf("[-] FOUND OVERLAPPING data of Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, next_packet_hdr.ts_sec, next_packet_hdr.ts_usec, next_packet_hdr.incl_len, next_packet_hdr.orig_len);
+            if (verbose >= 1) printf("[-] FOUND OVERLAPPING data of Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
             // correct the prior packets length information fields to align the overlapped packet
-            packet_hdr.incl_len = nextpos-(pos+16)+res;	// also include ascii corruption offset (res)
+            packet_hdr.incl_len = conint(nextpos-(pos+16)+res);	// also include ascii corruption offset (res)
             packet_hdr.orig_len = packet_hdr.incl_len;
 
 	    // time correction for the FIRST packet only
 	    if (count == 1) {
-	      if (next_packet_hdr.ts_usec > 0) {
+	      if (conint(next_packet_hdr.ts_usec) > 0) {
 		// next packets usec is > 0 ===> first packet will get same timestamp and usec - 1
 		packet_hdr.ts_sec = next_packet_hdr.ts_sec;
-		packet_hdr.ts_usec = next_packet_hdr.ts_usec-1;
-	      } else if(next_packet_hdr.ts_sec > 0) {
+		packet_hdr.ts_usec = conint(conint(next_packet_hdr.ts_usec)-1);
+	      } else if(conint(next_packet_hdr.ts_sec) > 0) {
 		// else: next packets timestamp i > 0 ===> firt packet will get timestamp -1 and maximum usec
-		packet_hdr.ts_sec = next_packet_hdr.ts_sec-1;
-		packet_hdr.ts_usec = 999999;
+		packet_hdr.ts_sec = conint(conint(next_packet_hdr.ts_sec)-1);
+		packet_hdr.ts_usec = conint(999999);
   	      } else {
 		// else: (next packets sec and usec are zero), this packet will get zero times as well
-		packet_hdr.ts_sec = 0;
-		packet_hdr.ts_usec = 0;
+		packet_hdr.ts_sec = conint(0);
+		packet_hdr.ts_usec = conint(0);
 	      }
 	    }
 
             // print out information
-            printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+            printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
             corrupted++;
 
             // overlapping seems to be a result of ascii-transfered pcap files via FTP
@@ -489,24 +513,24 @@ int main(int argc, char *argv[]) {
       }
 
       // reset file fointer to next packet
-      fseek(pcap, pos+16+packet_hdr.incl_len, SEEK_SET);
+      fseek(pcap, pos+16+conint(packet_hdr.incl_len), SEEK_SET);
 
       // we found a correct packet (and aligned it maybe)
-      if (verbose >= 1) printf("[+] Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+      if (verbose >= 1) printf("[+] Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
       // write last packet
       fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
-      fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);	// write packet body to output file
+      fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	// write packet body to output file
 
       // remember that this packets timestamp to evaluate futher timestamps
-      last_correct_ts_sec = packet_hdr.ts_sec;
-      last_correct_ts_usec = packet_hdr.ts_usec;
+      last_correct_ts_sec = conint(packet_hdr.ts_sec);
+      last_correct_ts_usec = conint(packet_hdr.ts_usec);
 
     } else {
 
       // PACKET IS CORRUPT
 
-      if (verbose >= 1) printf("[-] CORRUPTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+      if (verbose >= 1) printf("[-] CORRUPTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
       // scan from the current position to the maximum packet size and look for a next proper packet header to align the corrupted packet
       // also do not leave the loop if the first packet has not been found yet AND deep scan mode is activated
@@ -528,32 +552,32 @@ int main(int argc, char *argv[]) {
           printf("[*] End of file reached. Aligning last packet.\n");
 
 	  // align the last packet to match EOF
-	  packet_hdr.incl_len = filesize-(pos+16);
+	  packet_hdr.incl_len = conint(filesize-(pos+16));
 	  packet_hdr.orig_len = packet_hdr.incl_len;
 
 	  // if the is the first packet, we need to set timestamps to zero
 	  if (count == 1) {
-	    packet_hdr.ts_sec = 0;
-	    packet_hdr.ts_usec = 0;
+	    packet_hdr.ts_sec = conint(0);
+	    packet_hdr.ts_usec = conint(0);
 	  } else {	// else take the last correct timestamp and usec plus one
-	    packet_hdr.ts_sec = last_correct_ts_sec;
-	    packet_hdr.ts_usec = last_correct_ts_usec+1;
+	    packet_hdr.ts_sec = conint(last_correct_ts_sec);
+	    packet_hdr.ts_usec = conint(last_correct_ts_usec+1);
 	  }
 
           // read the packets body (size based on the just found next packets position)
           fseek(pcap, pos+16, SEEK_SET);
-          fread(&buffer, packet_hdr.incl_len, 1, pcap);
+          fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
           // write repaired packet header and packet body
           fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
-          fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);	// write packet body to output file
+          fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	// write packet body to output file
 
           // remember that this packets timestamp to evaluate futher timestamps
           last_correct_ts_sec = packet_hdr.ts_sec;
           last_correct_ts_usec = packet_hdr.ts_usec;
 
           // print out information
-          printf("[+] CORRECTED LAST Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+          printf("[+] CORRECTED LAST Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 	  corrupted++;
 
 	  break;
@@ -563,7 +587,7 @@ int main(int argc, char *argv[]) {
 	if (corrupted == -1) break;
 
         // heavy verbose output :-)
-        if (verbose >= 2) printf("[*] Trying Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, next_packet_hdr.ts_sec, next_packet_hdr.ts_usec, next_packet_hdr.incl_len, next_packet_hdr.orig_len);
+        if (verbose >= 2) printf("[*] Trying Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
         // check if next packets header looks proper
         res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &next_packet_hdr);
@@ -572,7 +596,7 @@ int main(int argc, char *argv[]) {
 	  // if we found a packet that is below the top 65535 bytes (deep scan) we cut it off and take the second packet as first one
 	  if ((nextpos-(pos+16) > 65535) && (count == 1) && (deep_scan == 1)) {
 
-            if (verbose >= 1) printf("[+] (DEEP SCAN) FOUND FIRST Packet #%u at position %ld (%u | %u | %u | %u).\n", count, nextpos, next_packet_hdr.ts_sec, next_packet_hdr.ts_usec, next_packet_hdr.incl_len, next_packet_hdr.orig_len);
+            if (verbose >= 1) printf("[+] (DEEP SCAN) FOUND FIRST Packet #%u at position %ld (%u | %u | %u | %u).\n", count, nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
 	    // set the filepoint to the top of the first packet to be read in next loop iteration
 	    fseek(pcap, nextpos, SEEK_SET);
@@ -582,29 +606,29 @@ int main(int argc, char *argv[]) {
 
 	  } else { // found next packet (NO deep scan mode)
             // we found the NEXT packets header, now we are able to align the corrupted packet
-            if (verbose >= 1) printf("[+] FOUND NEXT Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, next_packet_hdr.ts_sec, next_packet_hdr.ts_usec, next_packet_hdr.incl_len, next_packet_hdr.orig_len);
+            if (verbose >= 1) printf("[+] FOUND NEXT Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
             // correct the corrupted pcap packet header to match the just found next packet header
-	    packet_hdr.incl_len = nextpos-(pos+16);
+	    packet_hdr.incl_len = conint(nextpos-(pos+16));
 	    packet_hdr.orig_len = packet_hdr.incl_len;
 
 	    if (count == 1) { // time correction for the FIRST packet
-	      if (next_packet_hdr.ts_usec > 0) {
+	      if (conint(next_packet_hdr.ts_usec) > 0) {
 		// next packets usec is > 0 ===> first packet will get same timestamp and usec - 1
 		packet_hdr.ts_sec = next_packet_hdr.ts_sec;
-		packet_hdr.ts_usec = next_packet_hdr.ts_usec-1;
-	      } else if(next_packet_hdr.ts_sec > 0) {
+		packet_hdr.ts_usec = conint(conint(next_packet_hdr.ts_usec)-1);
+	      } else if(conint(next_packet_hdr.ts_sec) > 0) {
 		// else: next packets timestamp i > 0 ===> firt packet will get timestamp -1 and maximum usec
-		packet_hdr.ts_sec = next_packet_hdr.ts_sec-1;
-		packet_hdr.ts_usec = 999999;
+		packet_hdr.ts_sec = conint(conint(next_packet_hdr.ts_sec)-1);
+		packet_hdr.ts_usec = conint(999999);
   	      } else {
 		// else: (next packets sec and usec are zero), this packet will get zero times as well
-		packet_hdr.ts_sec = 0;
-		packet_hdr.ts_usec = 0;
+		packet_hdr.ts_sec = conint(0);
+		packet_hdr.ts_usec = conint(0);
 	      }
 	    } else { // ALL packets except the first one will use the last correct packets timestamps
 	      packet_hdr.ts_sec = last_correct_ts_sec;
-	      packet_hdr.ts_usec = last_correct_ts_usec+1;
+	      packet_hdr.ts_usec = conint(last_correct_ts_usec+1);
 	    }
 
             // read the packets body (size based on the just found next packets position)
@@ -613,14 +637,14 @@ int main(int argc, char *argv[]) {
 
             // write repaired packet header and packet body
             fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
-            fwrite(&buffer, packet_hdr.incl_len, 1, pcap_fix);	// write packet body to output file
+            fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	// write packet body to output file
 
             // remember that this packets timestamp to evaluate futher timestamps
             last_correct_ts_sec = packet_hdr.ts_sec;
             last_correct_ts_usec = packet_hdr.ts_usec;
 
             // print out information
-            printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, packet_hdr.ts_sec, packet_hdr.ts_usec, packet_hdr.incl_len, packet_hdr.orig_len);
+            printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
 	  }
 
@@ -637,7 +661,7 @@ int main(int argc, char *argv[]) {
       if (corrupted == -1) break;
 
       // did the counter exceed the maximum packet size?
-      if (deep_scan == 0 && (nextpos > pos+16+65535)) {
+      if ((count == 1 && deep_scan == 0) && (nextpos > pos+16+65535)) {
 
         // PACKET COULD NOT BE REPAIRED!
 
@@ -717,4 +741,3 @@ int main(int argc, char *argv[]) {
   // always return zero (might be changed later)
   return(0);
 }
-
