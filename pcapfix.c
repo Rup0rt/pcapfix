@@ -33,6 +33,10 @@
   #include <libgen.h>	// needed to compile on OpenBSD
 #endif
 
+#ifdef __WIN32__
+  #include <Winsock.h>   // needed for htons,htonl on windows systems
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
