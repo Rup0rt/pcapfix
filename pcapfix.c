@@ -1,7 +1,7 @@
 /*******************************************************************************
  *
  * pcapfix.c - pcap file repair tool
- * Copyright (c) 2012 Robert Krause (ruport@f00l.de)
+ * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
  * Last Modified: 03.01.2013
@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
   };
 
   // print out pcapfix header information
-  printf("pcapfix %s (c) 2012 Robert Krause\n\n", VERSION);
+  printf("pcapfix %s (c) 2012-2013 Robert Krause\n\n", VERSION);
 
   // scan for options and arguments
   while ((c = getopt_long(argc, argv, ":t:v::d::", long_options, &option_index)) != -1) {
