@@ -1,6 +1,11 @@
 pcapfix Changelog
 *****************
 
+0.7.1 - 03.01.2013
+------------------
+* REALLY fixed file pointer exception on windows64 systems
+* updated man-page
+
 0.7 - 18.10.2012
 ----------------
 * added support for swapped (big endian) pcap files

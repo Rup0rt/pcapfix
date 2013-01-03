@@ -4,7 +4,7 @@
  * Copyright (c) 2012 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 18.10.2012
+ * Last Modified: 03.01.2013
  *
  * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
  *
@@ -43,7 +43,7 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#define VERSION "0.7"		// pcapfix version
+#define VERSION "0.7.1"		// pcapfix version
 #define PCAP_MAGIC 0xa1b2c3d4	// the magic of the pcap global header (non swapped)
 
 int swapped = 0;		// pcap file is swapped (big endian)
@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
 
   // open input file
   printf("[*] Reading from file: %s\n", filename);
-  pcap = fopen(filename, "r");
+  pcap = fopen(filename, "rb");
   if (!pcap) {
     perror("[-] Cannot open input file");
     return(1);
@@ -297,7 +297,7 @@ int main(int argc, char *argv[]) {
   strcpy(filename_fix, "fixed_");		// outputfile = fixed_ + inputfile
   strcat(filename_fix, filebname);
   printf("[*] Writing to file: %s\n", filename_fix);
-  pcap_fix = fopen(filename_fix, "w");
+  pcap_fix = fopen(filename_fix, "wb");
   if (!pcap_fix) {
     perror("[-] Cannot open output file");
     return(1);

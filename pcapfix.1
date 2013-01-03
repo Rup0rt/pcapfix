@@ -1,4 +1,4 @@
-.TH PCAPFIX 1 "20 MAY 2012"
+.TH PCAPFIX 1 "03 JAN 2013"
 
 .SH "NAME"
 pcapfix \- repair pcap files
@@ -209,6 +209,22 @@ pcapfix will always exit with return code 0
 
 .SH "HISTORY"
 .TP 5
+0.7.1 - 03.01.2013
+* REALLY fixed file pointer exception on windows64 systems
+.br
+* updated man-page
+.TP
+0.7 - 18.10.2012
+* added support for swapped (big endian) pcap files
+.br
+* compiles on OpenBSD properly now
+.br
+* fixed file pointer exception on windows64 systems
+.br
+* fixed detection bug when corrupted packet is larger than 65536 bytes
+.br
+* fixed minimal packet limit to cope with wlan traffic
+.TP
 0.6 - 20.05.2012
 * added deep scan option (-d) to force packet detection inside the whole file
 .br
