@@ -1,6 +1,11 @@
 pcapfix Changelog
 *****************
 
+0.7.2 - 30.03.2013
+------------------
+* compiles on Apple systems properly now
+* fixed problems installing man-pages (on some systems)
+
 0.7.1 - 03.01.2013
 ------------------
 * REALLY fixed file pointer exception on windows64 systems

@@ -4,7 +4,7 @@
  * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 03.01.2013
+ * Last Modified: 30.03.2013
  *
  * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
  *
@@ -29,8 +29,8 @@
   #define _GNU_SOURCE     // we need this line to get the correct basename function on linux systems
 #endif
 
-#ifdef OPENBSD
-  #include <libgen.h>	// needed to compile on OpenBSD
+#if defined(OPENBSD) || defined(__APPLE__)
+  #include <libgen.h>    // needed to compile on OpenBSD / Apple
 #endif
 
 #ifdef __WIN32__
@@ -43,7 +43,7 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#define VERSION "0.7.1"		// pcapfix version
+#define VERSION "0.7.2"		// pcapfix version
 #define PCAP_MAGIC 0xa1b2c3d4	// the magic of the pcap global header (non swapped)
 
 int swapped = 0;		// pcap file is swapped (big endian)
