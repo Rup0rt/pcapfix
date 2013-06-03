@@ -39,9 +39,14 @@
 #endif
 
 #define VERSION "0.7.3"		// pcapfix version
-#define PCAP_MAGIC 0xa1b2c3d4	// the magic of the pcap global header (non swapped)
+
+#define PCAP_MAGIC 0xa1b2c3d4		// the magic of the pcap global header (non swapped)
+#define SNOOP_MAGIC 0x000000706f6f6e73	// snoop packet magic
 
 int swapped = 0;		// pcap file is swapped (big endian)
+
+// header placeholder
+unsigned long header_magic;
 
 // Global header (http://v2.nat32.com/pcap.htm)
 struct global_hdr_s {
@@ -304,12 +309,21 @@ int main(int argc, char *argv[]) {
   filesize = ftell(pcap);
 
   fseek(pcap, 0, SEEK_SET);
+  fread(&header_magic, sizeof(header_magic), 1, pcap);
+  fseek(pcap, 0, SEEK_SET);
 
   printf("[*] Analyzing global header...\n");
   fread(&global_hdr, sizeof(global_hdr), 1, pcap);	// read first bytes of input file into struct
 
   hdr_integ = 0;
-  // check for file's magic bytes ()
+
+  // check for known but not supported file types
+  if (header_magic == SNOOP_MAGIC) {
+    printf("[-] This is a SNOOP file, which is not supported yet.\n\n");
+    return(-1);
+  }
+
+  // check for pcap's magic bytes ()
   if (global_hdr.magic_number == PCAP_MAGIC) {
     if (verbose) printf("[+] Magic number: 0x%x\n", global_hdr.magic_number);
   } else if (global_hdr.magic_number == htonl(PCAP_MAGIC)) {
