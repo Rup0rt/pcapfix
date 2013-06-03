@@ -4,8 +4,8 @@ DOCDIR = $(PREFIX)/share/doc
 MANDIR = $(PREFIX)/share/man
 
 OPTFLAGS = $(shell getconf LFS_CFLAGS)
-#WARNFLAGS = -Wall
-WARNFLAGS = -Wno-unused-result
+#WARNFLAGS = -Wno-unused-result
+WARNFLAGS = -Wall
 DEBUGFLAGS = -g
 CFLAGS += $(OPTFLAGS) $(WARNFLAGS) $(DEBUGFLAGS)
 

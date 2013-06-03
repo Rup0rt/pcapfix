@@ -4,7 +4,7 @@
  * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 30.03.2013
+ * Last Modified: 02.06.2013
  *
  * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
  *
@@ -25,24 +25,18 @@
  *
  ******************************************************************************/
 
-#ifdef __linux__
-  #define _GNU_SOURCE     // we need this line to get the correct basename function on linux systems
-#endif
-
-//#if defined(OPENBSD) || defined(__APPLE__)
-//#endif
-
-#ifdef __WIN32__
-  #include <Winsock.h>   // needed for htons,htonl on windows systems
-#else
-  #include <libgen.h>    // needed for basename
-#endif
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+
+#ifdef __WIN32__
+  #include <Winsock.h>   	// needed for htons,htonl on windows systems
+#else
+  #include <libgen.h>    	// needed for basename
+  #include <arpa/inet.h>	// htons, htonl
+#endif
 
 #define VERSION "0.7.3"		// pcapfix version
 #define PCAP_MAGIC 0xa1b2c3d4	// the magic of the pcap global header (non swapped)
@@ -250,7 +244,6 @@ int main(int argc, char *argv[]) {
   while ((c = getopt_long(argc, argv, ":t:v::d::", long_options, &option_index)) != -1) {
     switch (c) {
       case 0:	// getopt_long options evaluation
-        long_options[option_index].flag;
         break;
       case 'd':	// deep scan
         deep_scan++;
