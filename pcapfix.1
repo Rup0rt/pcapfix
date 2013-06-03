@@ -4,7 +4,7 @@
 pcapfix \- repair pcap files
 
 .SH "SYNOPSIS"
-\fBpcapfix\fP [-v] [-d] [-t DATA_LINK_TYPE] filename
+\fBpcapfix\fP [\-v] [\-d] [\-t DATA_LINK_TYPE] filename
 
 .SH "DESCRIPTION"
 Pcapfix is a tool to repair your damaged or corrupted pcap files.
@@ -13,19 +13,19 @@ To fix your files the tool first checks for an intact pcap global header and rep
 
 .SH "OPTIONS"
 .TP 5
--v, --verbose
+\-v, \-\-verbose
 Enable verbose output (default = 0)
 .br
-You can use multiple -v options to increase verbosity.
+You can use multiple \-v options to increase verbosity.
 .br
 An verbosity of 2 will result in very much output data during package search.
 .TP
--d, --deep-scan
+\-d, \-\-deep\-scan
 Force deep scan (default = 0)
 .br
 This option will force pcapfix to scan for any packet inside the whole file (instead of the first 65535 bytes only).
 .TP
--t, --data-link-type <nr>
+\-t, \-\-data\-link\-type <nr>
 Data Link Type (default = 1)
 .br
 (See NOTES section below.)
@@ -33,21 +33,21 @@ Data Link Type (default = 1)
 .SH "EXAMPLES"
 .TP 5
 Repair the file damaged_file.pcap using verbose output.
-pcapfix -v damaged_file.pcap
+pcapfix \-v damaged_file.pcap
 .TP
 Repair the file wlan_traffic.pcap and force the data link type to be 119 (PRISM HEADER).
-pcapfix -t 119 wlan_traffic.pcap
+pcapfix \-t 119 wlan_traffic.pcap
 
 .SH "NOTES"
 .TP 5
 \fIVerbosity\fP
 
-You can use multiple -v options to increase verbosity. An verbosity of 2 will result in very much output data during package search.
+You can use multiple \-v options to increase verbosity. An verbosity of 2 will result in very much output data during package search.
 
 .TP
 \fIDeep scan\fP
 
-Pcapfix will only scan the first 65535 bytes (maximum packet length) for a proper first packet. If you want to force packet detection even above this limit (e.g. because your file has been heavily destroyed) you can use the deep scan option (-d).
+Pcapfix will only scan the first 65535 bytes (maximum packet length) for a proper first packet. If you want to force packet detection even above this limit (e.g. because your file has been heavily destroyed) you can use the deep scan option (\-d).
 
 .TP
 \fIASCII-mode transfered Files (FTP)\fP
@@ -57,7 +57,7 @@ Pcapfix is able to repair pcap files that have been  transfered in ascii-mode vi
 .TP
 \fIData Link Types\fP
 
-You can make pcapfix change / select your data link type by supplying -t option. Although you may select a data link type number between 0 and 255, only the following types are assigned: If the data link type field is corrupt, pcapfix will selct LINKTYPE_ETHERNET by default.
+You can make pcapfix change / select your data link type by supplying \-t option. Although you may select a data link type number between 0 and 255, only the following types are assigned: If the data link type field is corrupt, pcapfix will selct LINKTYPE_ETHERNET by default.
 
 See http://www.tcpdump.org/linktypes.html for futher information.
 
@@ -231,7 +231,7 @@ pcapfix will always exit with return code 0
 * fixed minimal packet limit to cope with wlan traffic
 .TP
 0.6 - 20.05.2012
-* added deep scan option (-d) to force packet detection inside the whole file
+* added deep scan option (\-d) to force packet detection inside the whole file
 .br
 * detects ascii-corruption in pcap header (unix->win)
 .br

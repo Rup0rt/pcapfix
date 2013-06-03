@@ -1,11 +1,9 @@
 all:
-	gcc pcapfix.c -o pcapfix
+	gcc $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -Wno-unused-result pcapfix.c -o pcapfix
 
 install:
-	install -m 755 -d /usr/local/bin/
-	install -m 755 -d /usr/local/man/man1
-	install -m 755 pcapfix /usr/local/bin/
-	install -m 644 pcapfix.1 /usr/local/man/man1/
+	install -D -m 755 pcapfix $(DESTDIR)/usr/bin/pcapfix
+	install -D -m 644 pcapfix.1 $(DESTDIR)/usr/share/man/man1/pcapfix.1
 
 uninstall:
 	rm -rf /usr/local/bin/pcapfix
