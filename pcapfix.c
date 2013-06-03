@@ -509,7 +509,7 @@ int main(int argc, char *argv[]) {
             printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
             corrupted++;
 
-            // overlapping seems to be a result of ascii-transfered pcap files via FTP
+            // overlapping seems to be a result of ascii-transferred pcap files via FTP
             ascii++;
 
             break;
@@ -735,9 +735,9 @@ int main(int argc, char *argv[]) {
     printf("Your pcap file has been successfully repaired (%d corrupted packet(s)).\n", corrupted);
     printf("Wrote %u packets to file %s.\n\n", count-1, filename_fix);
 
-    // are there any packets that might have been transfered in ascii mode?
+    // are there any packets that might have been transferred in ascii mode?
     if (ascii) {
-      printf("This corruption seems to be a result of an ascii-mode transfered pcap file via FTP.\n");
+      printf("This corruption seems to be a result of an ascii-mode transferred pcap file via FTP.\n");
       printf("The pcap structure of those files can be repaired, but the data inside might still be corrupted!!!\n\n");
     }
 

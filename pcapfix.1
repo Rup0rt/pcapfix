@@ -50,9 +50,9 @@ You can use multiple \-v options to increase verbosity. An verbosity of 2 will r
 Pcapfix will only scan the first 65535 bytes (maximum packet length) for a proper first packet. If you want to force packet detection even above this limit (e.g. because your file has been heavily destroyed) you can use the deep scan option (\-d).
 
 .TP
-\fIASCII-mode transfered Files (FTP)\fP
+\fIASCII-mode transferred Files (FTP)\fP
 
-Pcapfix is able to repair pcap files that have been  transfered in ascii-mode via FTP. In those files a proper pcap structure will be created only to make them readable by wireshark etc. The data inside the packets (and some pcap headers) might still be corrupted. To repair those packets a deeper look inside the packet structure (e.g. checksum) will be necessary.
+Pcapfix is able to repair pcap files that have been transferred in ascii-mode via FTP. In those files a proper pcap structure will be created only to make them readable by wireshark etc. The data inside the packets (and some pcap headers) might still be corrupted. To repair those packets a deeper look inside the packet structure (e.g. checksum) will be necessary.
 
 .TP
 \fIData Link Types\fP
@@ -252,7 +252,7 @@ pcapfix will always exit with return code 0
 .br
 * detect and repair cut-off pcap files
 .br
-* detect and repair ascii-mode transfered pcap files (pcap headers only!)
+* detect and repair ascii-mode transferred pcap files (pcap headers only!)
 .br
 * added progress bar
 .br
