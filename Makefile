@@ -1,13 +1,24 @@
+PREFIX = /usr
+BINDIR = $(PREFIX)/bin
+DOCDIR = $(PREFIX)/share/doc
+MANDIR = $(PREFIX)/share/man
+
+OPTFLAGS = $(shell getconf LFS_CFLAGS)
+#WARNFLAGS = -Wall
+WARNFLAGS = -Wno-unused-result
+DEBUGFLAGS = -g
+CFLAGS += $(OPTFLAGS) $(WARNFLAGS) $(DEBUGFLAGS)
+
 all:
-	gcc $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -Wno-unused-result pcapfix.c -o pcapfix
+	gcc $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) pcapfix.c -o pcapfix
 
 install:
-	install -D -m 755 pcapfix $(DESTDIR)/usr/bin/pcapfix
-	install -D -m 644 pcapfix.1 $(DESTDIR)/usr/share/man/man1/pcapfix.1
+	install -D -m 755 pcapfix $(DESTDIR)/($BINDIR)/pcapfix
+	install -D -m 644 pcapfix.1 $(DESTDIR)/($MANDIR)/man1/pcapfix.1
 
 uninstall:
-	rm -rf /usr/local/bin/pcapfix
-	rm -rf /usr/local/man/man1/pcapfix.1
+	rm -f $(DESTDIR)/($BINDIR)/pcapfix
+	rm -f $(DESTDIR)/($MANDIR)/man1/pcapfix.1
 
 clean:
-	rm -rf pcapfix
+	rm -f pcapfix
