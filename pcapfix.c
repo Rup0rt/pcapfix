@@ -29,12 +29,13 @@
   #define _GNU_SOURCE     // we need this line to get the correct basename function on linux systems
 #endif
 
-#if defined(OPENBSD) || defined(__APPLE__)
-  #include <libgen.h>    // needed to compile on OpenBSD / Apple
-#endif
+//#if defined(OPENBSD) || defined(__APPLE__)
+//#endif
 
 #ifdef __WIN32__
   #include <Winsock.h>   // needed for htons,htonl on windows systems
+#else
+  #include <libgen.h>    // needed for basename
 #endif
 
 #include <stdio.h>
@@ -43,7 +44,7 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#define VERSION "0.7.2"		// pcapfix version
+#define VERSION "0.7.3"		// pcapfix version
 #define PCAP_MAGIC 0xa1b2c3d4	// the magic of the pcap global header (non swapped)
 
 int swapped = 0;		// pcap file is swapped (big endian)
