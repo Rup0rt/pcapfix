@@ -4,7 +4,7 @@
  * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 02.06.2013
+ * Last Modified: 04.06.2013
  *
  * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
  *
@@ -32,18 +32,18 @@
 #include <getopt.h>
 
 #ifdef __WIN32__
-  #include <Winsock.h>   	// needed for htons,htonl on windows systems
+  #include <Winsock.h>   		// needed for htons,htonl on windows systems
 #else
-  #include <libgen.h>    	// needed for basename
-  #include <arpa/inet.h>	// htons, htonl
+  #include <libgen.h>    		// needed for basename
+  #include <arpa/inet.h>		// htons, htonl
 #endif
 
-#define VERSION "0.7.3"		// pcapfix version
+#define VERSION "0.7.3"			// pcapfix version
 
 #define PCAP_MAGIC 0xa1b2c3d4		// the magic of the pcap global header (non swapped)
 #define SNOOP_MAGIC 0x000000706f6f6e73	// snoop packet magic
 
-int swapped = 0;		// pcap file is swapped (big endian)
+int swapped = 0;			// pcap file is swapped (big endian)
 
 // header placeholder
 unsigned long header_magic;
@@ -311,8 +311,9 @@ int main(int argc, char *argv[]) {
   // check for empty file
   if (filesize == 0) {
     printf("[-] The source file is empty.\n\n");
+    fclose(pcap);
     fclose(pcap_fix);
-    remove(filename_fix);	// delete output file due to nothing changed
+    remove(filename_fix);
     return(1);
   }
 
@@ -330,7 +331,11 @@ int main(int argc, char *argv[]) {
   // check for known but not supported file types
   if (header_magic == SNOOP_MAGIC) {
     printf("[-] This is a SNOOP file, which is not supported yet.\n\n");
+    fclose(pcap);
+    fclose(pcap_fix);
+    remove(filename_fix);
     return(-1);
+
   }
 
   // check for pcap's magic bytes ()
@@ -409,7 +414,7 @@ int main(int argc, char *argv[]) {
   // evaluate the integrity of the global header
   if (hdr_integ == 0) { // no field has been corrupted? --> header is intact
     printf("[+] The global pcap header seems to be fine!\n");
-  } else if (hdr_integ >= 6) { // there have been six or more corrupted fields? --> header is missing
+  } else if (hdr_integ >= 5) { // there have been five or more (of seven) corrupted fields? --> header is missing
     printf("[-] The global pcap header seems to be missing ==> CORRECTED!\n");
     /* we need to set the file pointer to the beginning of the file, because
        further packet search depends on this position and without a global

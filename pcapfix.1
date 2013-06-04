@@ -1,4 +1,4 @@
-.TH PCAPFIX 1 "03 JAN 2013"
+.TH PCAPFIX 1 "04 JUN 2013"
 
 .SH "NAME"
 pcapfix \- repair pcap files
@@ -209,6 +209,17 @@ pcapfix will always exit with return code 0
 
 .SH "HISTORY"
 .TP 5
+0.7.3 - 04.06.2013
+* added snoop file detection
+.br
+* added large file support on 32bit architectures
+.br
+* improved missing header detection
+.br
+* fixed compiling errors on hurd and kfreebsd architectures
+.br
+* fixed minor bugs
+.TP
 0.7.2 - 30.03.2013
 * compiles on Apple systems properly now
 .br

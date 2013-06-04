@@ -13,12 +13,12 @@ all:
 	gcc $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) pcapfix.c -o pcapfix
 
 install:
-	install -D -m 755 pcapfix $(DESTDIR)/($BINDIR)/pcapfix
-	install -D -m 644 pcapfix.1 $(DESTDIR)/($MANDIR)/man1/pcapfix.1
+	install -D -m 755 pcapfix $(DESTDIR)/$(BINDIR)/pcapfix
+	install -D -m 644 pcapfix.1 $(DESTDIR)/$(MANDIR)/man1/pcapfix.1
 
 uninstall:
-	rm -f $(DESTDIR)/($BINDIR)/pcapfix
-	rm -f $(DESTDIR)/($MANDIR)/man1/pcapfix.1
+	rm -f $(DESTDIR)/$(BINDIR)/pcapfix
+	rm -f $(DESTDIR)/$(MANDIR)/man1/pcapfix.1
 
 clean:
 	rm -f pcapfix
