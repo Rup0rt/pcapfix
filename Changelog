@@ -1,6 +1,14 @@
 pcapfix Changelog
 *****************
 
+0.7.3 - 04.06.2013
+------------------
+* added snoop file detection
+* added large file support on 32bit architectures
+* fixed compiling problems on hurd and kfreebsd architectures
+* minor manpage fixes
+* fixed minor bugs
+
 0.7.2 - 30.03.2013
 ------------------
 * compiles on Apple systems properly now

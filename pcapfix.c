@@ -89,7 +89,7 @@ unsigned short conshort(unsigned short var) {
   return(htons(var));
 }
 
-/* conshort()
+/* conint()
    converts an integer variable to network byte order in case of swapped pcap file
    IN: var - variable to convert
    OUT: var in correct notation (swapped / non-swapped)
@@ -308,7 +308,17 @@ int main(int argc, char *argv[]) {
   fseek(pcap, 0, SEEK_END);
   filesize = ftell(pcap);
 
+  // check for empty file
+  if (filesize == 0) {
+    printf("[-] The source file is empty.\n\n");
+    fclose(pcap_fix);
+    remove(filename_fix);	// delete output file due to nothing changed
+    return(1);
+  }
+
   fseek(pcap, 0, SEEK_SET);
+
+  // read header to header magic for further inspection
   fread(&header_magic, sizeof(header_magic), 1, pcap);
   fseek(pcap, 0, SEEK_SET);
 
