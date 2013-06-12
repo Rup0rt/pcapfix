@@ -4,7 +4,7 @@
  * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 04.06.2013
+ * Last Modified: 12.06.2013
  *
  * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
  *
