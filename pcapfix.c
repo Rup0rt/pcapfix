@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
   unsigned int last_correct_ts_sec = 0;		// timestamp of the last proper packet found (seconds)
   unsigned int last_correct_ts_usec = 0;	// timestamp of the last proper packet found (microseconds)
   unsigned short hdr_integ;			// integrity counter of global header
-  unsigned long bytes;				// read/written bytes counter
+  unsigned long bytes;				// read/written bytes counter (unused yet)
   int c;					// loop counter
   int option_index = 0;				// getopt_long option index
   int ascii = 0;				// ascii counter for possible ascii-corrupted packets
@@ -322,6 +322,13 @@ int main(int argc, char *argv[]) {
 
   // read header to header magic for further inspection
   bytes = fread(&header_magic, sizeof(header_magic), 1, pcap);
+  if (bytes == 0) {
+    printf("[-] Cannot read file header (file too small?).\n\n");
+    fclose(pcap);
+    fclose(pcap_fix);
+    remove(filename_fix);
+    return(1);
+  }
   fseek(pcap, 0, SEEK_SET);
 
   printf("[*] Analyzing global header...\n");
