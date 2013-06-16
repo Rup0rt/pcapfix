@@ -4,7 +4,7 @@
  * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 12.06.2013
+ * Last Modified: 16.06.2013
  *
  * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
  *
@@ -223,6 +223,7 @@ int main(int argc, char *argv[]) {
   unsigned int last_correct_ts_sec = 0;		// timestamp of the last proper packet found (seconds)
   unsigned int last_correct_ts_usec = 0;	// timestamp of the last proper packet found (microseconds)
   unsigned short hdr_integ;			// integrity counter of global header
+  unsigned long bytes;				// read/written bytes counter
   int c;					// loop counter
   int option_index = 0;				// getopt_long option index
   int ascii = 0;				// ascii counter for possible ascii-corrupted packets
@@ -320,11 +321,11 @@ int main(int argc, char *argv[]) {
   fseek(pcap, 0, SEEK_SET);
 
   // read header to header magic for further inspection
-  fread(&header_magic, sizeof(header_magic), 1, pcap);
+  bytes = fread(&header_magic, sizeof(header_magic), 1, pcap);
   fseek(pcap, 0, SEEK_SET);
 
   printf("[*] Analyzing global header...\n");
-  fread(&global_hdr, sizeof(global_hdr), 1, pcap);	// read first bytes of input file into struct
+  bytes = fread(&global_hdr, sizeof(global_hdr), 1, pcap);	// read first bytes of input file into struct
 
   hdr_integ = 0;
 
@@ -425,7 +426,7 @@ int main(int argc, char *argv[]) {
   }
 
   // write the (maybe fixed) global header to output file
-  fwrite(&global_hdr, sizeof(global_hdr), 1, pcap_fix);
+  bytes = fwrite(&global_hdr, sizeof(global_hdr), 1, pcap_fix);
 
   // END OF GLOBAL HEADER CHECK
 
@@ -450,7 +451,7 @@ int main(int argc, char *argv[]) {
     if (verbose == 0) print_progress(pos, filesize);
 
     // read the next packet header
-    fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
+    bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
 
     // check if the packet header looks proper
     res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &packet_hdr);
@@ -482,7 +483,7 @@ int main(int argc, char *argv[]) {
       // we do ONLY scan for overlapping if next packet is NOT aligned
 
       // read next packet header
-      fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
+      bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
 
       // check if next packets header looks proper
       if (check_header(hdrbuffer, sizeof(hdrbuffer), conint(packet_hdr.ts_sec), &next_packet_hdr) == -1) {
@@ -494,7 +495,7 @@ int main(int argc, char *argv[]) {
 
           // read the possible next packets header
           fseek(pcap, nextpos, SEEK_SET);
-          fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
+          bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
 
           // heavy verbose output :-)
           if (verbose >= 2) printf("[*] Trying Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
@@ -546,8 +547,8 @@ int main(int argc, char *argv[]) {
       if (verbose >= 1) printf("[+] Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
       // write last packet
-      fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
-      fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	// write packet body to output file
+      bytes = fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
+      bytes = fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	// write packet body to output file
 
       // remember that this packets timestamp to evaluate futher timestamps
       last_correct_ts_sec = conint(packet_hdr.ts_sec);
@@ -593,11 +594,11 @@ int main(int argc, char *argv[]) {
 
           // read the packets body (size based on the just found next packets position)
           fseek(pcap, pos+16, SEEK_SET);
-          fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
+          bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
           // write repaired packet header and packet body
-          fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
-          fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	// write packet body to output file
+          bytes = fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
+          bytes = fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	// write packet body to output file
 
           // remember that this packets timestamp to evaluate futher timestamps
           last_correct_ts_sec = packet_hdr.ts_sec;
@@ -660,11 +661,11 @@ int main(int argc, char *argv[]) {
 
             // read the packets body (size based on the just found next packets position)
             fseek(pcap, pos+16, SEEK_SET);
-            fread(&buffer, packet_hdr.incl_len, 1, pcap);
+            bytes = fread(&buffer, packet_hdr.incl_len, 1, pcap);
 
             // write repaired packet header and packet body
-            fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
-            fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	// write packet body to output file
+            bytes = fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	// write packet header to output file
+            bytes = fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	// write packet body to output file
 
             // remember that this packets timestamp to evaluate futher timestamps
             last_correct_ts_sec = packet_hdr.ts_sec;

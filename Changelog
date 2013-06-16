@@ -1,7 +1,7 @@
 pcapfix Changelog
 *****************
 
-0.7.3 - 12.06.2013
+0.7.3 - 16.06.2013
 ------------------
 * added snoop file detection
 * added large file support on 32bit architectures
