@@ -4,7 +4,7 @@
  * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 16.06.2013
+ * Last Modified: 09.09.2013
  *
  * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
  *
@@ -38,12 +38,14 @@
   #include <arpa/inet.h>		// htons, htonl
 #endif
 
-#define VERSION "0.7.3"			// pcapfix version
+#define VERSION "0.7.4rc1"			// pcapfix version
 
-#define PCAP_MAGIC 0xa1b2c3d4		// the magic of the pcap global header (non swapped)
-#define SNOOP_MAGIC 0x000000706f6f6e73	// snoop packet magic
+#define PCAP_MAGIC 0xa1b2c3d4			// the magic of the pcap global header (non swapped)
+#define PCAP_NSEC_MAGIC 0xa1b23c4d		// the magic of the pcap global header (nanoseconds - non swapped)
+#define SNOOP_MAGIC 0x000000706f6f6e73ULL	// snoop packet magic
 
 int swapped = 0;			// pcap file is swapped (big endian)
+int nanoseconds = 0;			// pcap file uses nanoseconds (instead of microseconds)
 
 // header placeholder
 unsigned long header_magic;
@@ -130,9 +132,16 @@ int is_plausible(struct packet_hdr_s hdr, unsigned int prior_ts) {
   // packet is not younger than one day (related to prior packet)
   if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(7);
 
-  // usec (microseconds) must be > 0 AND <= 1000000
-  if (conint(hdr.ts_usec) < 0) return(8);
-  if (conint(hdr.ts_usec) > 1000000) return(9);
+  // check for nano/microseconds
+  if (nanoseconds == 0) {
+    // usec (microseconds) must be > 0 AND <= 1000000
+    if (conint(hdr.ts_usec) < 0) return(8);
+    if (conint(hdr.ts_usec) > 1000000) return(9);
+  } else {
+    // usec (nanoseconds) must be > 0 AND <= 1000000000
+    if (conint(hdr.ts_usec) < 0) return(8);
+    if (conint(hdr.ts_usec) > 1000000000) return(9);
+  }
 
   // all conditions fullfilled ==> everything fine!
   return(0);
@@ -221,7 +230,7 @@ int main(int argc, char *argv[]) {
   unsigned long filesize;			// file size
   unsigned int count;				// packet counter
   unsigned int last_correct_ts_sec = 0;		// timestamp of the last proper packet found (seconds)
-  unsigned int last_correct_ts_usec = 0;	// timestamp of the last proper packet found (microseconds)
+  unsigned int last_correct_ts_usec = 0;	// timestamp of the last proper packet found (microseconds or nanoseconds)
   unsigned short hdr_integ;			// integrity counter of global header
   unsigned long bytes;				// read/written bytes counter (unused yet)
   int c;					// loop counter
@@ -352,6 +361,13 @@ int main(int argc, char *argv[]) {
   } else if (global_hdr.magic_number == htonl(PCAP_MAGIC)) {
     if (verbose) printf("[+] Magic number: 0x%x (SWAPPED)\n", global_hdr.magic_number);
     swapped = 1;
+  } else if (global_hdr.magic_number == PCAP_NSEC_MAGIC) {
+    if (verbose) printf("[+] Magic number: 0x%x (NANOSECONDS)\n", global_hdr.magic_number);
+    nanoseconds = 1;
+  } else if (global_hdr.magic_number == htonl(PCAP_NSEC_MAGIC)) {
+    if (verbose) printf("[+] Magic number: 0x%x (SWAPPED - NANOSECONDS)\n", global_hdr.magic_number);
+    swapped = 1;
+    nanoseconds = 1;
   } else {
     hdr_integ++;
     if (verbose) printf("[-] Magic number: 0x%x\n", global_hdr.magic_number);

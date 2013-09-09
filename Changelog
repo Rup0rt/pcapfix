@@ -1,6 +1,10 @@
 pcapfix Changelog
 *****************
 
+0.7.4rc1 - 09.09.2013
+------------------
+* added nanoseconds support (Issue #1)
+
 0.7.3 - 16.06.2013
 ------------------
 * added snoop file detection
