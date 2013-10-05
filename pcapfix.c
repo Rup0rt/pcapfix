@@ -49,6 +49,8 @@
 
 #define TYPE_SHB 0x0A0D0D0A
 #define TYPE_IDB 0x00000001
+#define TYPE_PB  0x00000002
+#define TYPE_SPB 0x00000003
 #define TYPE_NRB 0x00000004
 #define TYPE_ISB 0x00000005
 #define TYPE_EPB 0x00000006
@@ -126,6 +128,19 @@ struct interface_statistics_block {
 	u_int32_t	interface_id;
 	u_int32_t	timestamp_high;
 	u_int32_t	timestamp_low;
+};
+
+struct simple_packet_block {
+	u_int32_t	len;
+};
+
+struct packet_block {
+	u_short		interface_id;
+	u_short		drops_count;
+	u_int32_t	timestamp_high;
+	u_int32_t	timestamp_low;
+	u_int32_t	caplen;
+	u_int32_t	len;
 };
 
 // usage()
@@ -898,6 +913,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   struct name_resolution_block nrb;
   struct enhanced_packet_block epb;
   struct interface_statistics_block isb;
+  struct packet_block pb;
+  struct simple_packet_block spb;
 
   unsigned long bytes;
   unsigned int check;
@@ -988,6 +1005,68 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           left -= padding;
 
         }
+        break;
+      case TYPE_PB:
+        printf("[+] Packet Block: 0x%08x\n", bh.block_type);
+        bytes = fread(&pb, sizeof(pb), 1, pcap);	// read first bytes of input file into struct
+        if (bytes != 1) return -1;
+
+        left -= sizeof(pb);
+
+        padding = pb.caplen;
+        if (pb.caplen % 4 != 0) padding += (4 - pb.caplen % 4);
+        fseek(pcap, padding, SEEK_CUR);
+        left -= padding;
+
+        // options
+        while (left > 0) {
+
+          bytes = fread(&oh, sizeof(oh), 1, pcap);
+          if (bytes != 1) return -1;
+
+          left -= sizeof(oh);
+
+          switch (oh.option_code) {
+            case 0x00:
+              printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x01:
+              printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x02:
+              printf("[+] OPTION: Link Layer Flags... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x03:
+              printf("[+] OPTION: Packet Hash... (%u bytes)\n", oh.option_length);
+              break;
+            default:
+              printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
+              break;
+          }
+
+          // end of options
+          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
+
+          padding = oh.option_length;
+          if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
+          fseek(pcap, padding, SEEK_CUR);
+          left -= padding;
+
+        }
+
+        break;
+      case TYPE_SPB:
+        printf("[+] Simple Packet Block: 0x%08x\n", bh.block_type);
+        bytes = fread(&spb, sizeof(spb), 1, pcap);	// read first bytes of input file into struct
+        if (bytes != 1) return -1;
+
+        left -= sizeof(spb);
+
+        padding = spb.len;
+        if (spb.len % 4 != 0) padding += (4 - spb.len % 4);
+        fseek(pcap, padding, SEEK_CUR);
+        left -= padding;
+
         break;
       case TYPE_IDB:
         printf("[+] Interface Description Block: 0x%08x\n", bh.block_type);
