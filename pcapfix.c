@@ -889,6 +889,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   struct option_header oh;
   struct interface_description_block idb;
   struct name_resolution_block nrb;
+  struct enhanced_packet_block epb;
 
   unsigned long bytes;
   unsigned int check;
@@ -1058,7 +1059,6 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         break;
       case TYPE_NRB:
         printf("[+] Name Resolution Block: 0x%08x\n", bh.block_type);
-        printf("[*] Total Block Length: %u bytes\n", bh.total_length);
 
         while(1) {
           bytes = fread(&nrb, sizeof(nrb), 1, pcap);	// read first bytes of input file into struct
@@ -1114,6 +1114,59 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
               break;
             case 0x04:
               printf("[+] OPTION: IPv6 Address of DNS Server... (%u bytes)\n", oh.option_length);
+              break;
+            default:
+              printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
+              break;
+          }
+
+          // end of options
+          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
+
+          padding = oh.option_length;
+          if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
+          fseek(pcap, padding, SEEK_CUR);
+          left -= padding;
+
+        }
+
+        break;
+      case TYPE_EPB:
+        printf("[+] Enhanced Packet Block: 0x%08x\n", bh.block_type);
+
+        bytes = fread(&epb, sizeof(epb), 1, pcap);
+        if (bytes != 1) return -1;
+
+        left -= sizeof(epb);
+
+        padding = epb.caplen;
+        if (epb.caplen % 4 != 0) padding += (4 - epb.caplen % 4);
+        fseek(pcap, padding, SEEK_CUR);
+        left -= padding;
+
+        // options
+        while (left > 0) {
+
+          bytes = fread(&oh, sizeof(oh), 1, pcap);
+          if (bytes != 1) return -1;
+
+          left -= sizeof(oh);
+
+          switch (oh.option_code) {
+            case 0x00:
+              printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x01:
+              printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x02:
+              printf("[+] OPTION: Link Layer Flags... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x03:
+              printf("[+] OPTION: Packet Hash... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x04:
+              printf("[+] OPTION: Dropped Packets Counter... (%u bytes)\n", oh.option_length);
               break;
             default:
               printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
