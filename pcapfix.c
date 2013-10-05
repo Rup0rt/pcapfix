@@ -50,6 +50,7 @@
 #define TYPE_SHB 0x0A0D0D0A
 #define TYPE_IDB 0x00000001
 #define TYPE_NRB 0x00000004
+#define TYPE_ISB 0x00000005
 #define TYPE_EPB 0x00000006
 
 int fix_pcap(FILE *pcap, FILE *pcap_fix);
@@ -119,6 +120,12 @@ struct enhanced_packet_block {
 	u_int32_t	timestamp_low;
 	u_int32_t	caplen;
 	u_int32_t	len;
+};
+
+struct interface_statistics_block {
+	u_int32_t	interface_id;
+	u_int32_t	timestamp_high;
+	u_int32_t	timestamp_low;
 };
 
 // usage()
@@ -890,6 +897,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   struct interface_description_block idb;
   struct name_resolution_block nrb;
   struct enhanced_packet_block epb;
+  struct interface_statistics_block isb;
 
   unsigned long bytes;
   unsigned int check;
@@ -1114,6 +1122,66 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
               break;
             case 0x04:
               printf("[+] OPTION: IPv6 Address of DNS Server... (%u bytes)\n", oh.option_length);
+              break;
+            default:
+              printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
+              break;
+          }
+
+          // end of options
+          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
+
+          padding = oh.option_length;
+          if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
+          fseek(pcap, padding, SEEK_CUR);
+          left -= padding;
+
+        }
+
+        break;
+      case TYPE_ISB:
+        printf("[+] Interface Statistics Block: 0x%08x\n", bh.block_type);
+
+        bytes = fread(&isb, sizeof(isb), 1, pcap);
+        if (bytes != 1) return -1;
+
+        left -= sizeof(isb);
+
+        // options
+        while (left > 0) {
+
+          bytes = fread(&oh, sizeof(oh), 1, pcap);
+          if (bytes != 1) return -1;
+
+          left -= sizeof(oh);
+
+          switch (oh.option_code) {
+            case 0x00:
+              printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x01:
+              printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x02:
+              printf("[+] OPTION: Capture Start Time... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x03:
+              printf("[+] OPTION: Capture End Time... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x04:
+              printf("[+] OPTION: Packets recieved... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x05:
+              printf("[+] OPTION: Packets dropped... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x06:
+              printf("[+] OPTION: Filter packets accepted... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x07:
+              printf("[+] OPTION: Packets dropped by OS... (%u bytes)\n", oh.option_length);
+              break;
+            case 0x08:
+              printf("[+] OPTION: Packets delivered to user... (%u bytes)\n", oh.option_length);
               break;
             default:
               printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
