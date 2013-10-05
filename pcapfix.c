@@ -919,7 +919,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   char *data;
 
   char *new_block;
-  unsigned long block_pos;
+  unsigned int block_pos;
 
   unsigned long bytes;
   unsigned int check;
@@ -927,6 +927,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   unsigned long pos;
   unsigned long filesize;
   signed long left;
+
+  unsigned long i;
 
   fseek(pcap, 0, SEEK_END);
   filesize = ftell(pcap);
@@ -938,11 +940,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   while (pos < filesize) {
     printf("%ld / %ld\n", pos, filesize);
 
-    bytes = fread(&bh, sizeof(bh), 1, pcap);	// read first bytes of input file into struct
+    bytes = fread(&bh, sizeof(bh), 1, pcap);
     if (bytes != 1) return -1;
 
     printf("[*] Total Block Length: %u bytes\n", bh.total_length);
     left = bh.total_length-sizeof(bh)-sizeof(check);
+
+printf("Type: 0x%08x\n", bh.block_type);
 
     new_block = malloc(bh.total_length);
     memcpy(new_block, &bh, 8);
@@ -951,7 +955,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     switch (bh.block_type) {
       case TYPE_SHB:
         printf("[+] Section Header Block: 0x%08x\n", bh.block_type);
-        bytes = fread(&shb, sizeof(shb), 1, pcap);	// read first bytes of input file into struct
+        bytes = fread(&shb, sizeof(shb), 1, pcap);
         if (bytes != 1) return -1;
 
         left -= sizeof(shb);
@@ -1265,9 +1269,6 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           left -= sizeof(oh);
 
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
-
           switch (oh.option_code) {
             case 0x00:
               printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
@@ -1284,10 +1285,18 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             case 0x04:
               printf("[+] OPTION: IPv6 Address of DNS Server... (%u bytes)\n", oh.option_length);
               break;
-            default:
-              printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
-              break;
           }
+
+          if (oh.option_code > 0x04) {
+            printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
+            printf("SKIPPING OPTIONS...\n");
+            break;
+/*            oh.option_code = 0x00;*/
+/*            oh.option_length = 0x00;*/
+          }
+
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           // end of options
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
@@ -1449,36 +1458,53 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         }
 
         break;
-      default:
-        printf("[-] Unknown block type!: 0x%08x\n", bh.block_type);
-        break;
+    }
+
+    if (bh.block_type > TYPE_EPB) {
+      printf("[-] Unknown block type!: 0x%08x\n", bh.block_type);
+      printf("SKIPPING!\n");
+    }
+
+    block_pos += sizeof(bh.total_length);
+    memcpy(new_block+4, &block_pos, sizeof(bh.total_length));
+    memcpy(new_block+block_pos-4, &block_pos, sizeof(bh.total_length));
+
+    printf("Writing %u bytes...\n", block_pos);
+    fwrite(new_block, block_pos, 1, pcap_fix);
+    free(new_block);
+
+    // check for correct block end (block size)
+    bytes = fread(&check, sizeof(check), 1, pcap);
+
+    if (check == bh.total_length) {
+      printf("[+] Block size matches (%u)!\n", check);
+    } else {
+      printf("[-] Block size mismatch (%u != %u)!\n", check, bh.total_length);
     }
 
     if (left == 0) {
       printf("[+] End of Block reached... byte counter is correct!\n");
     } else {
       printf("[-] Something went wrong! This should not be the end of the block! (%ld bytes left)\n", left);
+
+      printf("[*] Trying to aling next block...\n");
+      for (i=ftell(pcap)-4; i<filesize; i++) {
+        fseek(pcap, i, SEEK_SET);
+        fread(&bh, sizeof(bh), 1, pcap);
+        if (bh.total_length >= 12 && bh.block_type >= TYPE_IDB && bh.block_type <= TYPE_EPB) {
+          fseek(pcap, i+bh.total_length-4, SEEK_SET);
+          fread(&check, sizeof(check), 1, pcap);
+          if (check == bh.total_length) {
+            printf("GOT POS AT %ld\n", i);
+            fseek(pcap, i, SEEK_SET);
+            break;
+          }
+        }
+      }
     }
-
-    // check for correct block end (block size)
-    bytes = fread(&check, sizeof(check), 1, pcap);
-    if (bytes != 1) return -1;
-
-    if (check == bh.total_length) {
-      printf("[+] Block size matches (%u)!\n", check);
-    } else {
-      printf("[-] Block size mismatch (%u != %u)!\n", check, oh.option_length);
-    }
-
-    block_pos += 4;
-    memcpy(new_block+4, &block_pos, 4);
-    memcpy(new_block+block_pos-4, &block_pos, 4);
-
-    printf("Writing %ld bytes...\n", block_pos);
-    fwrite(new_block, block_pos, 1, pcap_fix);
-    free(new_block);
 
     pos = ftell(pcap);
+
   }
 
   printf("SUCCESS\n");
