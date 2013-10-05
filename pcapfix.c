@@ -409,7 +409,7 @@ int main(int argc, char *argv[]) {
       return(-1);
     case PCAPNG_MAGIC:
       printf("[+] This is a PCAPNG file.\n");
-      fix_pcapng(pcap, pcap_fix);
+      res = fix_pcapng(pcap, pcap_fix);
       break;
     case PCAP_MAGIC:
       printf("[+] This is a PCAP file.\n");
@@ -916,18 +916,37 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   struct packet_block pb;
   struct simple_packet_block spb;
 
+  char *data;
+
+  char *new_block;
+  unsigned long block_pos;
+
   unsigned long bytes;
   unsigned int check;
   unsigned long padding;
+  unsigned long pos;
+  unsigned long filesize;
   signed long left;
 
+  fseek(pcap, 0, SEEK_END);
+  filesize = ftell(pcap);
+  fseek(pcap, 0, SEEK_SET);
+
+  pos = 0;
+
   // check block header ()
-  while (1) {
+  while (pos < filesize) {
+    printf("%ld / %ld\n", pos, filesize);
+
     bytes = fread(&bh, sizeof(bh), 1, pcap);	// read first bytes of input file into struct
     if (bytes != 1) return -1;
 
     printf("[*] Total Block Length: %u bytes\n", bh.total_length);
     left = bh.total_length-sizeof(bh)-sizeof(check);
+
+    new_block = malloc(bh.total_length);
+    memcpy(new_block, &bh, 8);
+    block_pos = 8;
 
     switch (bh.block_type) {
       case TYPE_SHB:
@@ -967,6 +986,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         // section length
         printf("[*] Section length (we do not care): %ld\n", shb.section_length);
 
+        memcpy(new_block+block_pos, &shb, sizeof(shb));
+        block_pos += sizeof(shb);
+
         // options
         while (left > 0) {
 
@@ -974,6 +996,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (bytes != 1) return -1;
 
           left -= sizeof(oh);
+
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           switch (oh.option_code) {
             case 0x00:
@@ -1001,8 +1026,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
-          fseek(pcap, padding, SEEK_CUR);
+          data = malloc(padding);
+          fread(data, padding, 1, pcap);
           left -= padding;
+
+          memcpy(new_block+block_pos, data, padding);
+          block_pos += padding;
+
+          free(data);
 
         }
         break;
@@ -1013,10 +1044,19 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         left -= sizeof(pb);
 
+        memcpy(new_block+block_pos, &pb, sizeof(pb));
+        block_pos += sizeof(pb);
+
         padding = pb.caplen;
         if (pb.caplen % 4 != 0) padding += (4 - pb.caplen % 4);
-        fseek(pcap, padding, SEEK_CUR);
+        data = malloc(padding);
+        fread(data, padding, 1, pcap);
         left -= padding;
+
+        memcpy(new_block+block_pos, data, padding);
+        block_pos += padding;
+
+        free(data);
 
         // options
         while (left > 0) {
@@ -1025,6 +1065,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (bytes != 1) return -1;
 
           left -= sizeof(oh);
+
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           switch (oh.option_code) {
             case 0x00:
@@ -1049,8 +1092,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
-          fseek(pcap, padding, SEEK_CUR);
+          data = malloc(padding);
+          fread(data, padding, 1, pcap);
           left -= padding;
+
+          memcpy(new_block+block_pos, data, padding);
+          block_pos += padding;
+
+          free(data);
 
         }
 
@@ -1062,10 +1111,19 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         left -= sizeof(spb);
 
+        memcpy(new_block+block_pos, &spb, sizeof(spb));
+        block_pos += sizeof(spb);
+
         padding = spb.len;
         if (spb.len % 4 != 0) padding += (4 - spb.len % 4);
-        fseek(pcap, padding, SEEK_CUR);
+        data = malloc(padding);
+        fread(data, padding, 1, pcap);
         left -= padding;
+
+        memcpy(new_block+block_pos, data, padding);
+        block_pos += padding;
+
+        free(data);
 
         break;
       case TYPE_IDB:
@@ -1075,12 +1133,18 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         left -= sizeof(idb);
 
+        memcpy(new_block+block_pos, &idb, sizeof(idb));
+        block_pos += sizeof(idb);
+
         while (left > 0) {
 
           bytes = fread(&oh, sizeof(oh), 1, pcap);
           if (bytes != 1) return -1;
 
           left -= sizeof(oh);
+
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           switch (oh.option_code) {
             case 0x00:
@@ -1138,8 +1202,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
-          fseek(pcap, padding, SEEK_CUR);
+          data = malloc(padding);
+          fread(data, padding, 1, pcap);
           left -= padding;
+
+          memcpy(new_block+block_pos, data, padding);
+          block_pos += padding;
+
+          free(data);
 
         }
 
@@ -1152,6 +1222,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (bytes != 1) return -1;
 
           left -= sizeof(nrb);
+
+          memcpy(new_block+block_pos, &nrb, sizeof(nrb));
+          block_pos += sizeof(nrb);
 
           switch (nrb.record_type) {
             case 0x00:
@@ -1173,8 +1246,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           padding = nrb.record_length;
           if (nrb.record_length % 4 != 0) padding += (4 - nrb.record_length % 4);
-          fseek(pcap, padding, SEEK_CUR);
+          data = malloc(padding);
+          fread(data, padding, 1, pcap);
           left -= padding;
+
+          memcpy(new_block+block_pos, data, padding);
+          block_pos += padding;
+
+          free(data);
 
         }
 
@@ -1185,6 +1264,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (bytes != 1) return -1;
 
           left -= sizeof(oh);
+
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           switch (oh.option_code) {
             case 0x00:
@@ -1212,8 +1294,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
-          fseek(pcap, padding, SEEK_CUR);
+          data = malloc(padding);
+          fread(data, padding, 1, pcap);
           left -= padding;
+
+          memcpy(new_block+block_pos, data, padding);
+          block_pos += padding;
+
+          free(data);
 
         }
 
@@ -1226,6 +1314,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         left -= sizeof(isb);
 
+        memcpy(new_block+block_pos, &isb, sizeof(isb));
+        block_pos += sizeof(isb);
+
         // options
         while (left > 0) {
 
@@ -1233,6 +1324,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (bytes != 1) return -1;
 
           left -= sizeof(oh);
+
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           switch (oh.option_code) {
             case 0x00:
@@ -1272,8 +1366,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
-          fseek(pcap, padding, SEEK_CUR);
+          data = malloc(padding);
+          fread(data, padding, 1, pcap);
           left -= padding;
+
+          memcpy(new_block+block_pos, data, padding);
+          block_pos += padding;
+
+          free(data);
 
         }
 
@@ -1286,10 +1386,19 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         left -= sizeof(epb);
 
+        memcpy(new_block+block_pos, &epb, sizeof(epb));
+        block_pos += sizeof(epb);
+
         padding = epb.caplen;
         if (epb.caplen % 4 != 0) padding += (4 - epb.caplen % 4);
-        fseek(pcap, padding, SEEK_CUR);
+        data = malloc(padding);
+        fread(data, padding, 1, pcap);
         left -= padding;
+
+        memcpy(new_block+block_pos, data, padding);
+        block_pos += padding;
+
+        free(data);
 
         // options
         while (left > 0) {
@@ -1298,6 +1407,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (bytes != 1) return -1;
 
           left -= sizeof(oh);
+
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           switch (oh.option_code) {
             case 0x00:
@@ -1325,8 +1437,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
-          fseek(pcap, padding, SEEK_CUR);
+          data = malloc(padding);
+          fread(data, padding, 1, pcap);
           left -= padding;
+
+          memcpy(new_block+block_pos, data, padding);
+          block_pos += padding;
+
+          free(data);
 
         }
 
@@ -1352,7 +1470,18 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       printf("[-] Block size mismatch (%u != %u)!\n", check, oh.option_length);
     }
 
+    block_pos += 4;
+    memcpy(new_block+4, &block_pos, 4);
+    memcpy(new_block+block_pos-4, &block_pos, 4);
+
+    printf("Writing %ld bytes...\n", block_pos);
+    fwrite(new_block, block_pos, 1, pcap_fix);
+    free(new_block);
+
+    pos = ftell(pcap);
   }
+
+  printf("SUCCESS\n");
 
   return(1);
 }
