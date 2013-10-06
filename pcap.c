@@ -1,65 +1,76 @@
 #include "pcapfix.h"
 #include "pcap.h"
 
-/* is_plausible()
-   check if the pcap packet header could be a plausible one by satisfying those conditions:
-   ==> packet size >= 16 bytes AND <= 65535 bytes (included length AND original length) (conditions 1,2,3,4)
-   ==> included length <= original lenth (condition 5)
-   ==> packet timestamp is NOT older OR younger than the prior packets timestamp -+ one day (conditions 6,7)
-   ==> usec (microseconds) field >= 0 AND <= 1000000 (conditions 8,9)
-   IN: hdr - packet to check
-   IN: priot_ts - the prior packets timestamp
-   OUT: 0 - if packet is correct
-   OUT: >0 - the condition that failed
-*/
-int is_plausible(struct packet_hdr_s hdr, unsigned int prior_ts) {
-  /* check for minimum packet size */
-  /* minimum packet size should be 16, but in some cases, e.g. local wlan capture, packet might */
-  /* even be smaller --> decreased minimum size to 10 */
-  if (conint(hdr.incl_len) < 10) return(1);
-  if (conint(hdr.orig_len) < 10) return(2);
+int nanoseconds = 0;			      /* pcap file uses nanoseconds (instead of microseconds) */
 
-  /* check max maximum packet size */
-  if (conint(hdr.incl_len) > 65535) return(3);
-  if (conint(hdr.orig_len) > 65535) return(4);
+/*
+ * Function:  is_plausible
+ * -----------------------
+ * check if the pcap packet header could be a plausible one by satisfying those conditions:
+ * - packet size >= 16 bytes AND <= 65535 bytes (included length AND original length) (conditions 1,2,3,4)
+ * - included length <= original lenth (condition 5)
+ * - packet timestamp is NOT older OR younger than the prior packets timestamp -+ one day (conditions 6,7)
+ * - usec (microseconds) field <= 1000000 (conditions 8)
+ * - usec (nanoseconds) field <= 1000000000 (conditions 9)
+ *
+ * hdr:       the filled packet header struct to check for plausibility
+ * prior_ts:  the prior packets timestamp (seconds) to check for time relation (condition 6,7)
+ *
+ * returns:  0   success
+ *          -X   error (condition X failed)
+ *
+ */
+int is_plausible(struct packet_hdr_s hdr, unsigned int prior_ts) {
+  /* check for minimum packet size
+   * minimum packet size should be 16, but in some cases, e.g. local wlan capture, packet might
+   * even be smaller --> decreased minimum size to 10 */
+  if (conint(hdr.incl_len) < 10) return(-1);
+  if (conint(hdr.orig_len) < 10) return(-2);
+
+  /* check max maximum packet size (0xffff) */
+  if (conint(hdr.incl_len) > 65535) return(-3);
+  if (conint(hdr.orig_len) > 65535) return(-4);
 
   /* the included length CAN NOT be larger than the original length */
-  if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(5);
+  if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-5);
 
   /* packet is not older than one day (related to prior packet) */
-  if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(6);
+  if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(-6);
 
   /* packet is not younger than one day (related to prior packet) */
-  if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(7);
+  if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(-7);
 
   /* check for nano/microseconds */
   if (nanoseconds == 0) {
     /* usec (microseconds) must <= 1000000 */
-    if (conint(hdr.ts_usec) > 1000000) return(8);
+    if (conint(hdr.ts_usec) > 1000000) return(-8);
   } else {
     /* usec (nanoseconds) must be <= 1000000000 */
-    if (conint(hdr.ts_usec) > 1000000000) return(9);
+    if (conint(hdr.ts_usec) > 1000000000) return(-9);
   }
 
   /* all conditions fullfilled ==> everything fine! */
   return(0);
 }
 
-/* check_header()
-   this function takes a buffer and brute forces some possible ascii-corrupted bytes versus plausibility checks
-   IN: *buffer - the buffer that might contain the possible pcap packet header
-   IN: size - the size of the buffer (i choose double pcap packet header size)
-   IN: priot_ts - the prior packets timestamp (to check for plausibility)
-   IN: *hdr - the pointer to the packet header buffer (we use this to return the repaired header)
-   OUT: -1 - if there is NO pcap packet header inside the buffer (after ascii-corrution brute force)
-   OUT: >=0 - the number of ascii-corrupted bytes inside the *hdr (we need this data to align the beginning of the packet body later)
-*/
+/*
+ * Function:  check_header
+ * -----------------------
+ * this function takes a buffer and brute forces some possible ascii-corrupted bytes versus plausibility checks
+ *
+ * buffer:   the buffer that might contain the possible pcap packet header
+ * size:     the size of the buffer (double pcap packet header size is a good choice)
+ * priot_ts: the prior packets timestamp (to check for plausibility)
+ * hdr:      the pointer to the packet header buffer (we use this to return the repaired header)
+ *
+ * returns: >=0   success (return value contains number of ascii corrupted bytes in hdr (we need this data to align the beginning of the packet body later)
+ *           -1   error (no valid pcap header found inside buffer)
+ *
+ */
 int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct packet_hdr_s *hdr) {
-  unsigned int i;
-  int res;
-  char *tmp;	/* the temporary buffer that will be used for recursion */
-
-  tmp = malloc(size);
+  unsigned int i; /* loop variable - first byte in buffer that could be beginning of packet */
+  int res;        /* return value */
+  char *tmp;      /* the temporary buffer that will be used for recursion */
 
   /* does the buffer already contain a valid packet header (without any correction) ?? */
   memcpy(hdr, buffer, sizeof(struct packet_hdr_s));
@@ -69,10 +80,13 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
   /* 32-25 = 7 bytes maximum in 32bytes of data! */
   if (size <= 25) return(-1);
 
-  /* this loop will the the buffer for occurence of 0x0D + 0x0A (UNIX to WINDOWS ascii corruption) */
+  /* this loop will check the the buffer for occurence of 0x0D + 0x0A (UNIX to WINDOWS ascii corruption) */
   for(i=0; i<sizeof(struct packet_hdr_s); i++) {
     /* is there a 0x0D 0X0A combination at this position? */
     if (buffer[i] == 0x0D && buffer[i+1] == 0x0A) {
+
+      /* allocate memory for recursion buffer */
+      tmp = malloc(size);
 
       /* we cut out 0x0D because this byte could have been added due to ftp ascii transfer eg */
       memcpy(tmp, buffer, i);
@@ -81,17 +95,30 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
       /* and invoke the header again without this 0x0D byte */
       res = check_header(tmp, size-1, prior_ts, hdr);
 
+      /* free recursion buffer */
+      free(tmp);
+
       /* if the check was successfull (maybe with multiple recursions) return the value added by one (body shift offset) */
       if (res != -1) return(res+1);
     }
   }
 
-  free(tmp);
-
   /* the buffer (even after ascii corruption brute force) does not contain any valid pcap packet header */
   return(-1);
 }
 
+/*
+ * Function:  fix_pcap
+ * -------------------
+ * tries to fix a classic pcap file
+ *
+ * pcap:      file pointer to input file
+ * pcap_fix:  file pointer to output file
+ *
+ * returns: 0   success (file was corrupted and has been successfully repaired)
+ *          !=0 otherwise
+ *
+ */
 int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   struct global_hdr_s global_hdr;		      /* global header data */
   struct packet_hdr_s packet_hdr;		      /* packet header data */
@@ -112,32 +139,43 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   int corrupted = 0;				              /* corrupted packet counter for final output */
   int res;					                      /* the result of the header check == the offset of body shifting */
 
+  /* get size of input file */
   fseek(pcap, 0, SEEK_END);
   filesize = ftell(pcap);
   fseek(pcap, 0, SEEK_SET);
+
+  /* BEGIN GLOBAL HEADER CHECK */
 
   printf("[*] Analyzing Global Header...\n");
   bytes = fread(&global_hdr, sizeof(global_hdr), 1, pcap);	/* read first bytes of input file into struct */
   if (bytes != 1) return -1;
 
+  /* init integrity counter */
   hdr_integ = 0;
 
   /* check for pcap's magic bytes () */
   if (global_hdr.magic_number == PCAP_MAGIC) {
+    /* we got a classic pcap file (non swapped) */
     if (verbose) printf("[+] Magic number: 0x%x\n", global_hdr.magic_number);
   } else if (global_hdr.magic_number == htonl(PCAP_MAGIC)) {
+    /* we got a classic pcap file (swapped) */
     if (verbose) printf("[+] Magic number: 0x%x (SWAPPED)\n", global_hdr.magic_number);
     swapped = 1;
   } else if (global_hdr.magic_number == PCAP_NSEC_MAGIC) {
+    /* we got a classic pcap file that uses nanoseconds (non swapped) */
     if (verbose) printf("[+] Magic number: 0x%x (NANOSECONDS)\n", global_hdr.magic_number);
     nanoseconds = 1;
   } else if (global_hdr.magic_number == htonl(PCAP_NSEC_MAGIC)) {
+    /* we got a classic pcap file that uses nanoseconds (swapped) */
     if (verbose) printf("[+] Magic number: 0x%x (SWAPPED - NANOSECONDS)\n", global_hdr.magic_number);
     swapped = 1;
     nanoseconds = 1;
   } else {
+    /* we are not able to determine the pcap magic */
     hdr_integ++;
     if (verbose) printf("[-] Magic number: 0x%x\n", global_hdr.magic_number);
+
+    /* assume input file is a classic pcap file (NO nanoseconds, NOT swapped) */
     global_hdr.magic_number = PCAP_MAGIC;
   }
 
@@ -187,12 +225,12 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   }
 
   /* check for data link type (http://www.tcpdump.org/linktypes.html) */
-  if (conint(global_hdr.network) <= 245) {	/* data link types are >= 0 and <= 245 */
+  if (conint(global_hdr.network) <= 245) {	/* data link types are <= 245 */
     if (verbose) printf("[+] Data link type: %u\n", conint(global_hdr.network));
   } else {
     hdr_integ++;
     if (verbose) printf("[-] Data link type: %u\n", conint(global_hdr.network));
-    /* if data link type is corrupt, we set it to ethernet (user supplied param will be processed later) */
+    /* if data link type is corrupt, we set it to ethernet (user supplied param will be processed afterwards) */
     global_hdr.network = conint(1);
   }
 
@@ -208,14 +246,14 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   } else if (hdr_integ >= 5) { /* there have been five or more (of seven) corrupted fields? --> header is missing */
     printf("[-] The global pcap header seems to be missing ==> CORRECTED!\n");
     /* we need to set the file pointer to the beginning of the file, because
-       further packet search depends on this position and without a global
-       header the first packet might begin there */
+     * further packet search depends on this position and without a global
+     * header the first packet might begin there */
     fseek(pcap, 0, SEEK_SET);
-  } else { /* there have been corrupted fields (less than six) --> header is corrupted */
+  } else { /* there have been corrupted fields (less than five) --> header is corrupted */
     printf("[-] The global pcap header seems to corrupt! ==> CORRECTED\n");
   }
 
-  /* write the (maybe fixed) global header to output file */
+  /* write the (maybe changed) global header to output file */
   bytes = fwrite(&global_hdr, sizeof(global_hdr), 1, pcap_fix);
 
   /* END OF GLOBAL HEADER CHECK */
@@ -225,12 +263,12 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   printf("[*] Analyzing packets...\n");
 
   /* this loop iterates the packets from top till down by checking the
-     pcap packet headers on plausibility. if any packet header has got
-     implausible information the packet will be handled as corrupted
-     and pcapfix will brute force the next packet. if the packet header
-     look plausible, pcapfix will check if the next packet is aligned and
-     if not check for overlapping packets.
-  */
+   * pcap packet headers on plausibility. if any packet header has got
+   * implausible information the packet will be handled as corrupted
+   * and pcapfix will brute force the next packet. if the packet header
+   * look plausible, pcapfix will check if the next packet is aligned and
+   * if not check for overlapping packets.
+   */
 
   pos = ftell(pcap);	/* get current file pointer position */
 
@@ -279,8 +317,8 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
       if (check_header(hdrbuffer, sizeof(hdrbuffer), conint(packet_hdr.ts_sec), &next_packet_hdr) == -1) {
 
         /* the next packets header is corrupted thou we are going to scan through the prior packets body to look for an overlapped packet header
-           also look inside the next packets header + 16bytes of packet body, because we need to know HERE
-           do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
+         * also look inside the next packets header + 16bytes of packet body, because we need to know HERE
+         * do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
         for (nextpos=pos+16+1; (nextpos < pos+16+conint(packet_hdr.incl_len)+32) || (count == 1 && deep_scan == 1); nextpos++) {
 
           /* read the possible next packets header */
@@ -350,8 +388,8 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
       if (verbose >= 1) printf("[-] CORRUPTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
-      /* scan from the current position to the maximum packet size and look for a next proper packet header to align the corrupted packet */
-      /* also do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
+      /* scan from the current position to the maximum packet size and look for a next proper packet header to align the corrupted packet
+       * also do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
       for (nextpos=pos+16+1; (nextpos <= pos+16+65535) || (count == 1 && deep_scan == 1); nextpos++) {
 
         /* read the possible next packets header */
@@ -396,13 +434,13 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
           /* print out information */
           printf("[+] CORRECTED LAST Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
-	  corrupted++;
+          corrupted++;
 
-	  break;
-	}
+          break;
+        }
 
-	/* shall we abort the whole scan?? */
-	if (corrupted == -1) break;
+        /* shall we abort the whole scan?? */
+        if (corrupted == -1) break;
 
         /* heavy verbose output :-) */
         if (verbose >= 2) printf("[*] Trying Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
@@ -496,18 +534,12 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   }
 
   /* did we reach the end of pcap file? */
-  if (pos == filesize) { /* yes ==> all data processed == SUCCESS */
-    printf("[+] Success!\n\n");
-  } else { /* no ==> data missing == FAILED */
+  if (pos != filesize) { /* no ==> data missing == FAILED */
     printf("[-] Failed!\n\n");
     corrupted = -1;	/* the file could not be repaired */
   }
 
   /* END PACKET CHECK */
-
-  /* close files */
-  fclose(pcap);
-  fclose(pcap_fix);
 
   /* EVALUATE RESULT */
 
@@ -516,7 +548,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
     if (data_link_type == 1) { 	/* data link type has not been changed */
       printf("Your pcap file looks proper. Nothing to fix!\n\n");
-      return(0);
+      return(1);
     } else { /* the user forces a new data link type, then we dont remove the file even if no corruption was detected */
       printf("Your pcap file looks proper. Only data link type has been changed.\n\n");
     }
@@ -556,5 +588,5 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
     }
 
   }
-  return(1);
+  return(0);
 }
