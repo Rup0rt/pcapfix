@@ -9,8 +9,14 @@ WARNFLAGS = -Wall
 DEBUGFLAGS = -g
 CFLAGS += $(OPTFLAGS) $(WARNFLAGS) $(DEBUGFLAGS)
 
-all:
-	gcc $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) pcapfix.c -o pcapfix
+all: pcap pcapng
+	gcc $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) pcapfix.c pcap.o pcapng.o -o pcapfix
+
+pcap: pcap.c
+	gcc $(CPPFLAGS) $(CFLAGS) -c pcap.c -o pcap.o
+
+pcapng: pcapng.c
+	gcc $(CPPFLAGS) $(CFLAGS) -c pcapng.c -o pcapng.o
 
 install:
 	install -D -m 755 pcapfix $(DESTDIR)/$(BINDIR)/pcapfix
@@ -21,4 +27,4 @@ uninstall:
 	rm -f $(DESTDIR)/$(MANDIR)/man1/pcapfix.1
 
 clean:
-	rm -f pcapfix
+	rm -f *.o pcapfix
