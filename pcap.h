@@ -1,27 +1,27 @@
 #ifndef PF_PCAP
 #define PF_PCAP
 
-#define PCAP_MAGIC 0xa1b2c3d4			// the magic of the pcap global header (non swapped)
-#define PCAPNG_MAGIC 0x0a0d0d0a			// the magic of the pcap global header (non swapped)
-#define PCAP_NSEC_MAGIC 0xa1b23c4d		// the magic of the pcap global header (nanoseconds - non swapped)
+#define PCAP_MAGIC 0xa1b2c3d4			  /* the magic of the pcap global header (non swapped) */
+#define PCAPNG_MAGIC 0x0a0d0d0a			/* the magic of the pcap global header (non swapped) */
+#define PCAP_NSEC_MAGIC 0xa1b23c4d	/* the magic of the pcap global header (nanoseconds - non swapped) */
 
-// Global header (http://v2.nat32.com/pcap.htm)
+/* Global header (http://v2.nat32.com/pcap.htm) */
 struct global_hdr_s {
-        unsigned int magic_number;   	/* magic number */
-        unsigned short version_major;  	/* major version number */
-        unsigned short version_minor;  	/* minor version number */
-        signed int thiszone;       	/* GMT to local correction */
-        unsigned int sigfigs;        	/* accuracy of timestamps */
-        unsigned int snaplen;        	/* max length of captured packets, in octets */
-        unsigned int network;        	/* data link type */
+  u_int32_t magic_number;   /* magic number */
+  u_short version_major;  	/* major version number */
+  u_short version_minor;  	/* minor version number */
+  int32_t thiszone;       	/* GMT to local correction */
+  u_int32_t sigfigs;        /* accuracy of timestamps */
+  u_int32_t snaplen;        /* max length of captured packets, in octets */
+  u_int32_t network;        /* data link type */
 };
 
-// Packet header (http://v2.nat32.com/pcap.htm)
+/* Packet header (http://v2.nat32.com/pcap.htm) */
 struct packet_hdr_s {
-        unsigned int ts_sec;         /* timestamp seconds */
-        unsigned int ts_usec;        /* timestamp microseconds */
-        unsigned int incl_len;       /* number of octets of packet saved in file */
-        unsigned int orig_len;       /* actual length of packet */
+  u_int32_t ts_sec;         /* timestamp seconds */
+  u_int32_t ts_usec;        /* timestamp microseconds */
+  u_int32_t incl_len;       /* number of octets of packet saved in file */
+  u_int32_t orig_len;       /* actual length of packet */
 };
 
 int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct packet_hdr_s *hdr);

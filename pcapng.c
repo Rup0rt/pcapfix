@@ -88,7 +88,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   pos = 0;
 
-  // check block header ()
+  /* check block header () */
   while (pos < filesize) {
     printf("%ld / %ld\n", pos, filesize);
 
@@ -112,7 +112,7 @@ printf("Type: 0x%08x\n", bh.block_type);
 
         left -= sizeof(shb);
 
-        // check for pcap's magic bytes ()
+        /* check for pcap's magic bytes () */
         if (shb.byte_order_magic == BYTE_ORDER_MAGIC) {
           if (verbose) printf("[+] Byte Order Magic: 0x%x\n", shb.byte_order_magic);
         } else if (shb.byte_order_magic == htonl(BYTE_ORDER_MAGIC)) {
@@ -123,29 +123,29 @@ printf("Type: 0x%08x\n", bh.block_type);
           shb.byte_order_magic = BYTE_ORDER_MAGIC;
         }
 
-        // check for major version number (2)
-        if (conshort(shb.major_version) == 1) {	// current major version is 2
+        /* check for major version number (2) */
+        if (conshort(shb.major_version) == 1) {	/* current major version is 2 */
           if (verbose) printf("[+] Major version number: %hu\n", conshort(shb.major_version));
         } else {
           if (verbose) printf("[-] Major version number: %hu\n", conshort(shb.major_version));
           shb.major_version = conshort(1);
         }
 
-        // check for minor version number
-        if (conshort(shb.minor_version) == 0) {	// current minor version is 4
+        /* check for minor version number */
+        if (conshort(shb.minor_version) == 0) {	/* current minor version is 4 */
           if (verbose) printf("[+] Minor version number: %hu\n", conshort(shb.minor_version));
         } else {
           if (verbose) printf("[-] Minor version number: %hu\n", conshort(shb.minor_version));
           shb.minor_version = conshort(0);
         }
 
-        // section length
+        /* section length */
         printf("[*] Section length (we do not care): %ld\n", shb.section_length);
 
         memcpy(new_block+block_pos, &shb, sizeof(shb));
         block_pos += sizeof(shb);
 
-        // options
+        /* options */
         while (left > 0) {
 
           bytes = fread(&oh, sizeof(oh), 1, pcap);
@@ -177,7 +177,7 @@ printf("Type: 0x%08x\n", bh.block_type);
               break;
           }
 
-          // end of options
+          /* end of options */
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           padding = oh.option_length;
@@ -195,7 +195,7 @@ printf("Type: 0x%08x\n", bh.block_type);
         break;
       case TYPE_PB:
         printf("[+] Packet Block: 0x%08x\n", bh.block_type);
-        bytes = fread(&pb, sizeof(pb), 1, pcap);	// read first bytes of input file into struct
+        bytes = fread(&pb, sizeof(pb), 1, pcap);	/* read first bytes of input file into struct */
         if (bytes != 1) return -1;
 
         left -= sizeof(pb);
@@ -214,7 +214,7 @@ printf("Type: 0x%08x\n", bh.block_type);
 
         free(data);
 
-        // options
+        /* options */
         while (left > 0) {
 
           bytes = fread(&oh, sizeof(oh), 1, pcap);
@@ -243,7 +243,7 @@ printf("Type: 0x%08x\n", bh.block_type);
               break;
           }
 
-          // end of options
+          /* end of options */
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           padding = oh.option_length;
@@ -262,7 +262,7 @@ printf("Type: 0x%08x\n", bh.block_type);
         break;
       case TYPE_SPB:
         printf("[+] Simple Packet Block: 0x%08x\n", bh.block_type);
-        bytes = fread(&spb, sizeof(spb), 1, pcap);	// read first bytes of input file into struct
+        bytes = fread(&spb, sizeof(spb), 1, pcap);	/* read first bytes of input file into struct */
         if (bytes != 1) return -1;
 
         left -= sizeof(spb);
@@ -284,7 +284,7 @@ printf("Type: 0x%08x\n", bh.block_type);
         break;
       case TYPE_IDB:
         printf("[+] Interface Description Block: 0x%08x\n", bh.block_type);
-        bytes = fread(&idb, sizeof(idb), 1, pcap);	// read first bytes of input file into struct
+        bytes = fread(&idb, sizeof(idb), 1, pcap);	/* read first bytes of input file into struct */
         if (bytes != 1) return -1;
 
         left -= sizeof(idb);
@@ -353,7 +353,7 @@ printf("Type: 0x%08x\n", bh.block_type);
               break;
           }
 
-          // end of options
+          /* end of options */
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           padding = oh.option_length;
@@ -374,7 +374,7 @@ printf("Type: 0x%08x\n", bh.block_type);
         printf("[+] Name Resolution Block: 0x%08x\n", bh.block_type);
 
         while(1) {
-          bytes = fread(&nrb, sizeof(nrb), 1, pcap);	// read first bytes of input file into struct
+          bytes = fread(&nrb, sizeof(nrb), 1, pcap);	/* read first bytes of input file into struct */
           if (bytes != 1) return -1;
 
           left -= sizeof(nrb);
@@ -397,7 +397,7 @@ printf("Type: 0x%08x\n", bh.block_type);
               break;
           }
 
-          // end of options
+          /* end of options */
           if (nrb.record_type == 0x00 && nrb.record_length == 0x00) break;
 
           padding = nrb.record_length;
@@ -413,7 +413,7 @@ printf("Type: 0x%08x\n", bh.block_type);
 
         }
 
-        // options
+        /* options */
         while (left > 0) {
 
           bytes = fread(&oh, sizeof(oh), 1, pcap);
@@ -450,7 +450,7 @@ printf("Type: 0x%08x\n", bh.block_type);
           memcpy(new_block+block_pos, &oh, sizeof(oh));
           block_pos += sizeof(oh);
 
-          // end of options
+          /* end of options */
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           padding = oh.option_length;
@@ -478,7 +478,7 @@ printf("Type: 0x%08x\n", bh.block_type);
         memcpy(new_block+block_pos, &isb, sizeof(isb));
         block_pos += sizeof(isb);
 
-        // options
+        /* options */
         while (left > 0) {
 
           bytes = fread(&oh, sizeof(oh), 1, pcap);
@@ -522,7 +522,7 @@ printf("Type: 0x%08x\n", bh.block_type);
               break;
           }
 
-          // end of options
+          /* end of options */
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           padding = oh.option_length;
@@ -561,7 +561,7 @@ printf("Type: 0x%08x\n", bh.block_type);
 
         free(data);
 
-        // options
+        /* options */
         while (left > 0) {
 
           bytes = fread(&oh, sizeof(oh), 1, pcap);
@@ -593,7 +593,7 @@ printf("Type: 0x%08x\n", bh.block_type);
               break;
           }
 
-          // end of options
+          /* end of options */
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           padding = oh.option_length;
@@ -625,7 +625,7 @@ printf("Type: 0x%08x\n", bh.block_type);
     fwrite(new_block, block_pos, 1, pcap_fix);
     free(new_block);
 
-    // check for correct block end (block size)
+    /* check for correct block end (block size) */
     bytes = fread(&check, sizeof(check), 1, pcap);
 
     if (check == bh.total_length) {

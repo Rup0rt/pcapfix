@@ -5,7 +5,7 @@ MANDIR = $(PREFIX)/share/man
 
 OPTFLAGS = $(shell getconf LFS_CFLAGS)
 #WARNFLAGS = -Wno-unused-result
-WARNFLAGS = -Wall
+WARNFLAGS = -Wall -Wextra -pedantic
 DEBUGFLAGS = -g
 CFLAGS += $(OPTFLAGS) $(WARNFLAGS) $(DEBUGFLAGS)
 

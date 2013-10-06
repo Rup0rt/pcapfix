@@ -29,23 +29,23 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.0.0"			// pcapfix version
+#define VERSION "1.0.0"			/* pcapfix version */
 
-#define SNOOP_MAGIC 0x6f6f6e73ULL	// snoop packet magic (first 4 bytes)
+#define SNOOP_MAGIC 0x6f6f6e73	/* snoop packet magic (first 4 bytes) */
 
-// configuration variables
-int deep_scan = 0;				// deep scan option (default: no depp scan)
-int nanoseconds = 0;			// pcap file uses nanoseconds (instead of microseconds)
-int verbose = 0;				// verbose output option (default: dont be verbose)
-int swapped = 0;			// pcap file is swapped (big endian)
-int data_link_type = 1;			// data link type (default: LINKTYPE_ETHERNET)
+/* configuration variables */
+int deep_scan = 0;				/* deep scan option (default: no depp scan) */
+int nanoseconds = 0;			/* pcap file uses nanoseconds (instead of microseconds) */
+int verbose = 0;				  /* verbose output option (default: dont be verbose) */
+int swapped = 0;			    /* pcap file is swapped (big endian) */
+int data_link_type = 1;		/* data link type (default: LINKTYPE_ETHERNET) */
 
-// header placeholder
+/* header placeholder */
 unsigned int header_magic;
 
-// usage()
-// print out the usage information
-// IN: progname - the program name
+/* usage()
+   print out the usage information
+   IN: progname - the program name */
 void usage(char *progname) {
   printf("Usage: %s [OPTIONS] filename\n", progname);
   printf("OPTIONS:");
@@ -75,70 +75,70 @@ unsigned int conint(unsigned int var) {
   return(htonl(var));
 }
 
-// print_progress()
-// prints the progess bar
-// IN: pos - the current filepointer position
-// IN: filesize - the size of the file
+/* print_progress()
+   prints the progess bar
+   IN: pos - the current filepointer position
+   IN: filesize - the size of the file */
 void print_progress(unsigned long pos, unsigned long filesize) {
-  int i;		// loop counter
-  float percentage;	// pencentage variable
+  int i;		        /* loop counter */
+  float percentage;	/* pencentage variable */
 
-  // calculate the current percentage of file analyzing progress
+  /* calculate the current percentage of file analyzing progress */
   percentage = (float)pos/(float)filesize;
 
-  // print the first part of the line including percentage output
+  /* print the first part of the line including percentage output */
   printf("[*] Progress: %5.2f %% [", percentage*100);
 
-  // output progress bar (width = 50 chars)
-  for (i=1; i<=percentage*50 ;i++) printf("=");	// calculate and output "="-signs
-  printf(">");					// output arrow peak
-  for (i=percentage*50; i<50; i++) printf(" ");	// calculate and output spaces
+  /* output progress bar (width = 50 chars) */
+  for (i=1; i<=percentage*50 ;i++) printf("=");	/* calculate and output "="-signs */
+  printf(">");					/* output arrow peak */
+  for (i=percentage*50; i<50; i++) printf(" ");	/* calculate and output spaces */
 
-  // clear the line and carriage return
+  /* clear the line and carriage return */
   printf("]\n\033[F\033[J");
 }
 
-// main()
-// IN: argc - number of cmd line args
-// IN: argv - array of cmd line args
-// OUT: always zero
+/* main()
+   IN: argc - number of cmd line args
+   IN: argv - array of cmd line args
+   OUT: always zero */
 int main(int argc, char *argv[]) {
-  FILE *pcap, *pcap_fix;			// input and output file
-  int option_index = 0;				// getopt_long option index
-  unsigned long filesize;			// file size
+  FILE *pcap, *pcap_fix;			/* input and output file */
+  int option_index = 0;				/* getopt_long option index */
+  unsigned long filesize;			/* file size */
   int c;
   int res;
   char *filename;
   char *filebname;
   char *filename_fix;
-  unsigned long bytes;				// read/written bytes counter (unused yet)
+  unsigned long bytes;				/* read/written bytes counter (unused yet) */
 
-  // init getopt_long options struct
+  /* init getopt_long options struct */
   struct option long_options[] = {
-    {"data-link-type", required_argument, 0, 't'},		// --data-link-type == -t
-    {"deep-scan", no_argument, 0, 'd'},				// --deep-scan == -d
-    {"verbose", no_argument, 0, 'v'},				// --verbose == -v
+    {"data-link-type", required_argument, 0, 't'},		/* --data-link-type == -t */
+    {"deep-scan", no_argument, 0, 'd'},				        /* --deep-scan == -d */
+    {"verbose", no_argument, 0, 'v'},				          /* --verbose == -v */
     {0, 0, 0, 0}
   };
 
-  // print out pcapfix header information
+  /* print out pcapfix header information */
   printf("pcapfix %s (c) 2012-2013 Robert Krause\n\n", VERSION);
 
-  // scan for options and arguments
+  /* scan for options and arguments */
   while ((c = getopt_long(argc, argv, ":t:v::d::", long_options, &option_index)) != -1) {
     switch (c) {
-      case 0:	// getopt_long options evaluation
+      case 0:	/* getopt_long options evaluation */
         break;
-      case 'd':	// deep scan
+      case 'd':	/* deep scan */
         deep_scan++;
         break;
-      case 'v':	// verbose
+      case 'v':	/* verbose */
         verbose++;
         break;
-      case 't':	// data link type
+      case 't':	/* data link type */
         data_link_type = atoi(optarg);
         break;
-      case '?': // unknown option
+      case '?': /* unknown option */
         usage(argv[0]);
         return 1;
       default:
@@ -146,16 +146,16 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // filename is first argument
+  /* filename is first argument */
   filename = argv[optind++];
 
-  // if filename is not set, output usage information
+  /* if filename is not set, output usage information */
   if (filename == NULL) {
     usage(argv[0]);
     return(1);
   }
 
-  // open input file
+  /* open input file */
   printf("[*] Reading from file: %s\n", filename);
   pcap = fopen(filename, "rb");
   if (!pcap) {
@@ -163,17 +163,17 @@ int main(int argc, char *argv[]) {
     return(1);
   }
 
-  // open output file
-  // we need to extract the basename first (windows and linux use different functions)
+  /* open output file */
+  /* we need to extract the basename first (windows and linux use different functions) */
   filebname = malloc(strlen(filename));
   #ifdef __WIN32__
-    _splitpath(filename, NULL, NULL, filebname, NULL);	// windown method (_splitpath)
+    _splitpath(filename, NULL, NULL, filebname, NULL);	/* windown method (_splitpath) */
   # else
-    strcpy(filebname, basename(filename));		// unix method (basename)
+    strcpy(filebname, basename(filename));		/* unix method (basename) */
   #endif
-  filename_fix = malloc(strlen(filebname)+6);	// size of outputfile depends on inputfile's length
+  filename_fix = malloc(strlen(filebname)+6);	/* size of outputfile depends on inputfile's length */
 
-  strcpy(filename_fix, "fixed_");		// outputfile = fixed_ + inputfile
+  strcpy(filename_fix, "fixed_");		/* outputfile = fixed_ + inputfile */
   strcat(filename_fix, filebname);
   free(filebname);
   printf("[*] Writing to file: %s\n", filename_fix);
@@ -183,13 +183,13 @@ int main(int argc, char *argv[]) {
     return(1);
   }
 
-  // BEGIN OF GLOBAL HEADER CHECK
+  /* BEGIN OF GLOBAL HEADER CHECK */
 
-  // get file size
+  /* get file size */
   fseek(pcap, 0, SEEK_END);
   filesize = ftell(pcap);
 
-  // check for empty file
+  /* check for empty file */
   if (filesize == 0) {
     printf("[-] The source file is empty.\n\n");
     fclose(pcap);
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
 
   fseek(pcap, 0, SEEK_SET);
 
-  // read header to header magic for further inspection
+  /* read header to header magic for further inspection */
   bytes = fread(&header_magic, sizeof(header_magic), 1, pcap);
   if (bytes == 0) {
     printf("[-] Cannot read file header (file too small?).\n\n");
@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
   }
   fseek(pcap, 0, SEEK_SET);
 
-  // check for known but not supported file types
+  /* check for known but not supported file types */
   switch (header_magic) {
     case SNOOP_MAGIC:
       printf("[-] This is a SNOOP file, which is not supported yet.\n\n");
@@ -235,18 +235,18 @@ int main(int argc, char *argv[]) {
 
   switch (res) {
     case 0:
-      // nothing to fix
-      remove(filename_fix);	// delete output file due to nothing changed
+      /* nothing to fix */
+      remove(filename_fix);	/* delete output file due to nothing changed */
       break;
     case -1:
-      // reparation impossible
+      /* reparation impossible */
       remove(filename_fix);
       break;
     case 1:
-      // fixed
+      /* fixed */
       break;
   }
 
-  // always return zero (might be changed later)
+  /* always return zero (might be changed later) */
   return(0);
 }
