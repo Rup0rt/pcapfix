@@ -98,8 +98,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   unsigned long pos;                        /* current block position in input file */
   unsigned long filesize;                   /* size of input file */
   signed long left;                         /* bytes left to proceed until current blocks end is reached */
-  unsigned long i;                          /* loop counter to check for valid block */
   unsigned int count;
+  int res;
 
   /* get file size of input file */
   fseek(pcap, 0, SEEK_END);
@@ -114,6 +114,24 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     /* read the header of the current block */
     bytes = fread(&bh, sizeof(bh), 1, pcap);
     if (bytes != 1) return -1;
+
+    if (bh.total_length > filesize-pos) {
+      printf("[-] Block Length (%u) exceeds file size (%ld).\n", bh.total_length, filesize);
+
+      /* search for next valid block */
+      printf("[*] Trying to align next block...\n");
+      res = find_valid_block(pcap, filesize);
+      if (res == 0) {
+        printf("[+] GOT Next Block at Position %ld\n", ftell(pcap));
+        bh.total_length = ftell(pcap)-pos;
+        printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
+      } else {
+        printf("[*] No more valid Blocks found inside file! (maybe it was the last one)");
+        bh.total_length = filesize-pos;
+        printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
+      }
+      fseek(pcap, pos+sizeof(struct block_header), SEEK_SET);
+    }
 
     /* output information of current blocks header */
     printf("[*] Total Block Length: %u bytes\n", bh.total_length);
@@ -937,36 +955,16 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* we did not hit the end of block - need to search for next one */
 
-      /* search for next block */
+      /* search for next valid block */
       printf("[*] Trying to align next block...\n");
-
-      /* bytewise processing of input file */
-      for (i=ftell(pcap)-4; i<filesize; i++) {
-        fseek(pcap, i, SEEK_SET);
-
-        /* read possbile block header */
-        fread(&bh, sizeof(bh), 1, pcap);
-
-        /* check if:
-         * - block header is greater than minimal size (12)
-         * - block header type has a valid ID */
-        if (bh.total_length >= 12 && bh.block_type >= TYPE_IDB && bh.block_type <= TYPE_EPB) {
-          /* block header might be valid */
-
-          /* check if the second size value is valid too */
-          fseek(pcap, i+bh.total_length-4, SEEK_SET);
-          fread(&check, sizeof(check), 1, pcap);
-          if (check == bh.total_length) {
-            /* also the second block size value is correct! */
-            printf("[+] GOT Next Block (Type: 0x%08x) at Position %ld\n", bh.block_type, i);
-            printf("SKIPPING %ld BYTES OF TRASH???\n", i-pos-block_pos);
-
-            /* set pointer to next block position */
-            fseek(pcap, i, SEEK_SET);
-            break;
-          }
-        }
+      res = find_valid_block(pcap, filesize);
+      if (res != 0) {
+        printf("[*] No more valid Blocks found inside file! (maybe it was the last one)");
+        break;
       }
+
+      printf("[+] GOT Next Block at Position %ld\n", ftell(pcap));
+
     }
 
     /* set positon of next block */
@@ -976,4 +974,39 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   /* everything successfull - file has been repaired */
   return(0);
+}
+
+int find_valid_block(FILE *pcap, unsigned long filesize) {
+  unsigned long i;
+  unsigned int check;                       /* variable to check end of blocks sizes */
+  struct block_header bh;
+
+  /* bytewise processing of input file */
+  for (i=ftell(pcap)-4; i<filesize; i++) {
+    fseek(pcap, i, SEEK_SET);
+
+    /* read possbile block header */
+    fread(&bh, sizeof(bh), 1, pcap);
+
+    /* check if:
+     * - block header is greater than minimal size (12)
+     * - block header type has a valid ID */
+    if (bh.total_length >= 12 && bh.block_type >= TYPE_IDB && bh.block_type <= TYPE_EPB) {
+      /* block header might be valid */
+
+      /* check if the second size value is valid too */
+      fseek(pcap, i+bh.total_length-4, SEEK_SET);
+      fread(&check, sizeof(check), 1, pcap);
+      if (check == bh.total_length) {
+        /* also the second block size value is correct! */
+        printf("[+] GOT Next Block (Type: 0x%08x) at Position %ld\n", bh.block_type, i);
+
+        /* set pointer to next block position */
+        fseek(pcap, i, SEEK_SET);
+        return(0);
+      }
+    }
+  }
+
+  return(-1);
 }
