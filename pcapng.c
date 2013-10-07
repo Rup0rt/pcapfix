@@ -99,6 +99,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   unsigned long filesize;                   /* size of input file */
   signed long left;                         /* bytes left to proceed until current blocks end is reached */
   unsigned long i;                          /* loop counter to check for valid block */
+  unsigned int count;
 
   /* get file size of input file */
   fseek(pcap, 0, SEEK_END);
@@ -174,16 +175,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         block_pos += sizeof(shb);
 
         /* options */
+        count = 0 ;
         while (left > 0) {
 
           /* read option header into struct */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
           if (bytes != 1) return -1;
           left -= sizeof(oh);
-
-          /* copy option header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
 
           /* which option did we get ? */
           switch (oh.option_code) {
@@ -207,11 +205,31 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             case 0x04:
               printf("[+] OPTION: Userappl... (%u bytes)\n", oh.option_length);
               break;
-            /* Unknown Option Code */
-            default:
-              printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
-              break;
           }
+
+          /* Invalid Option? */
+          if (oh.option_code > 0x04) {
+            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
+
+            /* do not write to repaired block */
+            printf("SKIPPING OPTIONS...\n");
+
+            if (count == 0) {
+              printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
+          }
+
+          /* option is valid */
+
+          /* copy option header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           /* end of options? -> do not write any further */
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
@@ -231,6 +249,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* clean up memory */
           free(data);
+
+          count++;
 
         }
         break;
@@ -265,16 +285,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         free(data);
 
         /* options */
+        count = 0;
         while (left > 0) {
 
           /* read options header */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
           if (bytes != 1) return -1;
           left -= sizeof(oh);
-
-          /* copy options header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
 
           /* which option did we get ? */
           switch (oh.option_code) {
@@ -294,11 +311,31 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             case 0x03:
               printf("[+] OPTION: Packet Hash... (%u bytes)\n", oh.option_length);
               break;
-            /* Unknown Option Code */
-            default:
-              printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
-              break;
           }
+
+          /* Invalid Option? */
+          if (oh.option_code > 0x03) {
+            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
+
+            /* do not write to repaired block */
+            printf("SKIPPING OPTIONS...\n");
+
+            if (count == 0) {
+              printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
+          }
+
+          /* option is valid */
+
+          /* copy options header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           /* end of options? -> do not write any further */
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
@@ -319,6 +356,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           /* clean up memory */
           free(data);
 
+          count++;
         }
         break;
       /* Simple Packet Block */
@@ -367,16 +405,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         block_pos += sizeof(idb);
 
         /* options */
+        count = 0;
         while (left > 0) {
 
           /* read options header */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
           if (bytes != 1) return -1;
           left -= sizeof(oh);
-
-          /* copy options header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
 
           /* which option did we get? */
           switch (oh.option_code) {
@@ -440,11 +475,31 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             case 0x0e:
               printf("[+] OPTION: Timestamp Offset... (%u bytes)\n",  oh.option_length);
               break;
-            /* Unknown Option Code */
-            default:
-              printf("[-] Unknown option code: 0x%04x\n", oh.option_code);
-              break;
           }
+
+          /* Invalid Option? */
+          if (oh.option_code > 0x0e) {
+            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
+
+            /* do not write to repaired block */
+            printf("SKIPPING OPTIONS...\n");
+
+            if (count == 0) {
+              printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
+          }
+
+          /* option is valid */
+
+          /* copy options header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           /* end of options? -> do not write any further*/
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
@@ -465,6 +520,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           /* clean up memory */
           free(data);
 
+          count++;
         }
         break;
 
@@ -473,16 +529,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         printf("[+] Name Resolution Block: 0x%08x\n", bh.block_type);
 
         /* process records */
+        count = 0;
         while (left > 0) {
 
           /* read name resolution block */
           bytes = fread(&nrb, sizeof(nrb), 1, pcap);	/* read first bytes of input file into struct */
           if (bytes != 1) return -1;
           left -= sizeof(nrb);
-
-          /* write name resolution block into repaired block */
-          memcpy(new_block+block_pos, &nrb, sizeof(nrb));
-          block_pos += sizeof(nrb);
 
           /* which type of record did we get? */
           switch (nrb.record_type) {
@@ -498,11 +551,31 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             case 0x02:
               printf("[+] RECORD: IPv6 Record... (%u bytes)\n", nrb.record_length);
               break;
-            /* Unknown Record Typte */
-            default:
-              printf("[-] RECORD: Unknown record type: 0x%04x\n", nrb.record_type);
-              break;
           }
+
+          /* Invalid Record? */
+          if (nrb.record_type > 0x02) {
+            printf("[-] RECORD: Unknown record type: 0x%04x (%u bytes)\n", nrb.record_type, nrb.record_length);
+
+            /* do not write to repaired block */
+            printf("SKIPPING RECORDS...\n");
+
+            if (count == 0) {
+              printf("[*] No Records inside -> no need for End of Records...\n");
+              break;
+            }
+
+            printf("[*] %u Records inside -> Finishing with End of Records...\n", count);
+
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
+          }
+
+          /* record is valid */
+
+          /* write name resolution block into repaired block */
+          memcpy(new_block+block_pos, &nrb, sizeof(nrb));
+          block_pos += sizeof(nrb);
 
           /* end of records? -> do not write any further */
           if (nrb.record_type == 0x00 && nrb.record_length == 0x00) break;
@@ -523,9 +596,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           /* clean up memory */
           free(data);
 
+          count++;
+
         }
 
         /* options */
+        count = 0;
         while (left > 0) {
 
           /* read options header */
@@ -559,15 +635,23 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* Invalid Option? */
           if (oh.option_code > 0x04) {
-            printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
+            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
 
             /* do not write to repaired block */
             printf("SKIPPING OPTIONS...\n");
-            break;
-      /* TODO */
-/*            oh.option_code = 0x00;*/
-/*            oh.option_length = 0x00;*/
+
+            if (count == 0) {
+              printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
           }
+
+          /* option is valid */
 
           /* copy option header into repaired block */
           memcpy(new_block+block_pos, &oh, sizeof(oh));
@@ -592,6 +676,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           /* clean up memory */
           free(data);
 
+          count++;
+
         }
         break;
 
@@ -609,16 +695,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         block_pos += sizeof(isb);
 
         /* options */
+        count = 0;
         while (left > 0) {
 
           /* read options header */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
           if (bytes != 1) return -1;
           left -= sizeof(oh);
-
-          /* copy options header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
 
           /* which option did we get? */
           switch (oh.option_code) {
@@ -658,11 +741,31 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             case 0x08:
               printf("[+] OPTION: Packets delivered to user... (%u bytes)\n", oh.option_length);
               break;
-            /* Unknown Option Code */
-            default:
-              printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
-              break;
           }
+
+          /* Invalid Option? */
+          if (oh.option_code > 0x08) {
+            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
+
+            /* do not write to repaired block */
+            printf("SKIPPING OPTIONS...\n");
+
+            if (count == 0) {
+              printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
+          }
+
+          /* option is valid */
+
+          /* copy options header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           /* end of options? -> do not write any further */
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
@@ -683,6 +786,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           /* clean up memory */
           free(data);
 
+          count++;
         }
         break;
 
@@ -716,16 +820,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         free(data);
 
         /* options */
+        count = 0;
         while (left > 0) {
 
           /* read option header */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
           if (bytes != 1) return -1;
           left -= sizeof(oh);
-
-          /* copy option header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
 
           /* which option did we get? */
           switch (oh.option_code) {
@@ -749,11 +850,31 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             case 0x04:
               printf("[+] OPTION: Dropped Packets Counter... (%u bytes)\n", oh.option_length);
               break;
-            /* Unknown Option Type */
-            default:
-              printf("[-] OPTION: Unknown option code: 0x%04x\n", oh.option_code);
-              break;
           }
+
+          /* Invalid Option? */
+          if (oh.option_code > 0x04) {
+            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
+
+            /* do not write to repaired block */
+            printf("SKIPPING OPTIONS...\n");
+
+            if (count == 0) {
+              printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
+          }
+
+          /* option is valid */
+
+          /* copy option header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
 
           /* end of options? -> do not write any further */
           if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
@@ -774,13 +895,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           /* clean up memory */
           free(data);
 
+          count++;
         }
         break;
 
     } /* end of switch - block header */
 
     /* check for invalid block header type */
-    if (bh.block_type > TYPE_EPB) {
+    if (bh.block_type != TYPE_SHB && bh.block_type > TYPE_EPB) {
       printf("[-] Unknown block type!: 0x%08x\n", bh.block_type);
       printf("SKIPPING!\n");
       /* TODO */
@@ -796,6 +918,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     fwrite(new_block, block_pos, 1, pcap_fix);
     free(new_block);
 
+    /* did we process all bytes of the block - given by block length */
+    if (left == 0) {
+      printf("[+] End of Block reached... byte counter is correct!\n");
+    } else {
+      /* we did not read until end of block - maybe due to option skipping */
+      printf("[-] Something went wrong! This should not be the end of the block! (%ld bytes left)\n", left);
+    }
+
     /* check for correct block end (block size) */
     bytes = fread(&check, sizeof(check), 1, pcap);
 
@@ -804,17 +934,11 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       printf("[+] Block size matches (%u)!\n", check);
     } else {
       printf("[-] Block size mismatch (%u != %u)!\n", check, bh.total_length);
-    }
 
-    /* did we process all bytes of the block - given by block length */
-    if (left == 0) {
-      printf("[+] End of Block reached... byte counter is correct!\n");
-    } else {
-      /* we did not read until end of block - maybe due to option skipping */
-      printf("[-] Something went wrong! This should not be the end of the block! (%ld bytes left)\n", left);
+      /* we did not hit the end of block - need to search for next one */
 
       /* search for next block */
-      printf("[*] Trying to aling next block...\n");
+      printf("[*] Trying to align next block...\n");
 
       /* bytewise processing of input file */
       for (i=ftell(pcap)-4; i<filesize; i++) {
@@ -834,7 +958,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fread(&check, sizeof(check), 1, pcap);
           if (check == bh.total_length) {
             /* also the second block size value is correct! */
-            printf("GOT POS AT %ld\n", i);
+            printf("[+] GOT Next Block (Type: 0x%08x) at Position %ld\n", bh.block_type, i);
+            printf("SKIPPING %ld BYTES OF TRASH???\n", i-pos-block_pos);
 
             /* set pointer to next block position */
             fseek(pcap, i, SEEK_SET);
