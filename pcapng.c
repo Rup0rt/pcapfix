@@ -18,7 +18,7 @@ struct section_header_block {
 	u_int32_t	byte_order_magic; /* byte order magic - indicates swapped data */
 	u_short		major_version;    /* major version of pcapng (1 atm) */
 	u_short		minor_version;    /* minor version of pcapng (0 atm) */
-	u_int64_t	section_length;   /* length of section - can be -1 (parsing necessary) */
+	int64_t	section_length;   /* length of section - can be -1 (parsing necessary) */
 };
 
 /* Interface Description Block (IDB) - ID 0x00000001 */
@@ -186,7 +186,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         }
 
         /* section length */
-        printf("[*] Section length (we do not care): %ld\n", shb.section_length);
+        if (shb.section_length == -1) {
+          printf("[*] Section length: %ld\n", shb.section_length);
+
+        } else {
+          printf("[*] Section length: %ld (SETTING TO -1)\n", shb.section_length);
+          shb.section_length = -1;
+        }
 
         /* copy section header block into repaired block */
         memcpy(new_block+block_pos, &shb, sizeof(shb));
