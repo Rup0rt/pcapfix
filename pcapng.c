@@ -99,6 +99,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   unsigned long filesize;                   /* size of input file */
   signed long left;                         /* bytes left to proceed until current blocks end is reached */
   unsigned int count;
+  unsigned int valid;
   int res;
 
   /* get file size of input file */
@@ -108,6 +109,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   /* init positon of current block */
   pos = 0;
+  valid = 0;
 
   /* loop every block inside pcapng file until end of file is reached */
   while (pos < filesize) {
@@ -281,6 +283,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Packet Block */
       case TYPE_PB:
+
+        if (valid == 0) {
+          printf("[-] No Section Block header found! Creating one...\n");
+          write_shb(pcap_fix);
+        }
+
         printf("[+] Packet Block: 0x%08x\n", bh.block_type);
 
         /* read packet block into struct */
@@ -385,6 +393,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         break;
       /* Simple Packet Block */
       case TYPE_SPB:
+
+        if (valid == 0) {
+          printf("[-] No Section Block header found! Creating one...\n");
+          write_shb(pcap_fix);
+        }
+
         printf("[+] Simple Packet Block: 0x%08x\n", bh.block_type);
 
         /* read simple packet block */
@@ -417,6 +431,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Interface Description Block */
       case TYPE_IDB:
+
+        if (valid == 0) {
+          printf("[-] No Section Block header found! Creating one...\n");
+          write_shb(pcap_fix);
+        }
+
         printf("[+] Interface Description Block: 0x%08x\n", bh.block_type);
 
         /* read interface description block */
@@ -550,6 +570,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Name Resolution Block */
       case TYPE_NRB:
+
+        if (valid == 0) {
+          printf("[-] No Section Block header found! Creating one...\n");
+          write_shb(pcap_fix);
+        }
+
         printf("[+] Name Resolution Block: 0x%08x\n", bh.block_type);
 
         /* process records */
@@ -707,6 +733,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Interface Statistics Block */
       case TYPE_ISB:
+
+        if (valid == 0) {
+          printf("[-] No Section Block header found! Creating one...\n");
+          write_shb(pcap_fix);
+        }
+
         printf("[+] Interface Statistics Block: 0x%08x\n", bh.block_type);
 
         /* read interface statistics block */
@@ -816,6 +848,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Enhanced Packet Block */
       case TYPE_EPB:
+
+        if (valid == 0) {
+          printf("[-] No Section Block header found! Creating one...\n");
+          write_shb(pcap_fix);
+        }
+
         printf("[+] Enhanced Packet Block: 0x%08x\n", bh.block_type);
 
         /* read enhanced packet block */
@@ -929,18 +967,20 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     if (bh.block_type != TYPE_SHB && bh.block_type > TYPE_EPB) {
       printf("[-] Unknown block type!: 0x%08x\n", bh.block_type);
       printf("SKIPPING!\n");
-      /* TODO */
+
+    } else {
+      /* write sizes of block header to correct positions */
+      block_pos += sizeof(bh.total_length);
+      memcpy(new_block+4, &block_pos, sizeof(bh.total_length));
+      memcpy(new_block+block_pos-4, &block_pos, sizeof(bh.total_length));
+
+      /* write repaired block into output file */
+      printf("Writing %u bytes...\n", block_pos);
+      fwrite(new_block, block_pos, 1, pcap_fix);
+      free(new_block);
+
+      valid++;
     }
-
-    /* write sizes of block header to correct positions */
-    block_pos += sizeof(bh.total_length);
-    memcpy(new_block+4, &block_pos, sizeof(bh.total_length));
-    memcpy(new_block+block_pos-4, &block_pos, sizeof(bh.total_length));
-
-    /* write repaired block into output file */
-    printf("Writing %u bytes...\n", block_pos);
-    fwrite(new_block, block_pos, 1, pcap_fix);
-    free(new_block);
 
     /* did we process all bytes of the block - given by block length */
     if (left == 0) {
@@ -1017,4 +1057,54 @@ int find_valid_block(FILE *pcap, unsigned long filesize) {
   }
 
   return(-1);
+}
+
+int write_shb(FILE *pcap_fix) {
+  struct block_header bh;
+  struct section_header_block shb;
+  struct option_header oh;
+
+  unsigned int size;
+  unsigned int padding;
+  unsigned char *data;
+
+  char comment[] = "Added by pcapfix.\x00\x00\x00\x00";
+
+  bh.block_type = TYPE_SHB;
+
+  size = sizeof(struct block_header);
+
+  shb.byte_order_magic = BYTE_ORDER_MAGIC;
+  shb.major_version = 1;
+  shb.minor_version = 0;
+
+  size += sizeof(struct section_header_block);
+
+  oh.option_code = 0x01; /* comment */
+  oh.option_length = strlen(comment);
+
+  size += sizeof(struct option_header);
+
+  padding = oh.option_length;
+  if (oh.option_length % 4 != 0) padding += (4 - oh.option_length % 4);
+
+  size += padding;
+
+  size += 4;  /* end of options */
+
+  size += 4;  /* second block_length field */
+
+  bh.total_length = size;
+
+  data = malloc(size);
+  memcpy(data, &bh, sizeof(bh));
+  memcpy(data+sizeof(bh), &shb, sizeof(shb));
+  memcpy(data+sizeof(bh)+sizeof(shb), &oh, sizeof(oh));
+  memcpy(data+sizeof(bh)+sizeof(shb)+sizeof(oh), comment, padding);
+  memset(data+sizeof(bh)+sizeof(shb)+sizeof(oh)+padding, 0, 4);
+  memcpy(data+sizeof(bh)+sizeof(shb)+sizeof(oh)+padding+4, &size, sizeof(size));
+
+  fwrite(data, size, 1, pcap_fix);
+
+  return(0);
 }

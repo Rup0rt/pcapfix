@@ -30,4 +30,6 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix);
 
 int find_valid_block(FILE *pcap, unsigned long filesize);
 
+int write_shb(FILE *pcap_fix);
+
 #endif
