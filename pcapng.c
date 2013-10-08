@@ -264,7 +264,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read data of current option */
           data = malloc(padding);
-          fread(data, padding, 1, pcap);
+          bytes = fread(data, padding, 1, pcap);
           left -= padding;
 
           /* write option data to repaired block */
@@ -298,7 +298,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* read packet data from input file */
         data = malloc(padding);
-        fread(data, padding, 1, pcap);
+        bytes = fread(data, padding, 1, pcap);
         left -= padding;
 
         /* copy packet data into repaired block */
@@ -370,7 +370,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read data of current option */
           data = malloc(padding);
-          fread(data, padding, 1, pcap);
+          bytes = fread(data, padding, 1, pcap);
           left -= padding;
 
           /* copy option data to repaired block */
@@ -403,7 +403,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* read packet data from input file */
         data = malloc(padding);
-        fread(data, padding, 1, pcap);
+        bytes = fread(data, padding, 1, pcap);
         left -= padding;
 
         /* copy packet data into repaired block */
@@ -534,7 +534,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read option data */
           data = malloc(padding);
-          fread(data, padding, 1, pcap);
+          bytes = fread(data, padding, 1, pcap);
           left -= padding;
 
           /* write option data into repaired block */
@@ -610,7 +610,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read record value from input file */
           data = malloc(padding);
-          fread(data, padding, 1, pcap);
+          bytes = fread(data, padding, 1, pcap);
           left -= padding;
 
           /* copy record value into repaired buffer */
@@ -690,7 +690,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read option value from input file */
           data = malloc(padding);
-          fread(data, padding, 1, pcap);
+          bytes = fread(data, padding, 1, pcap);
           left -= padding;
 
           /* copy option value into repaired block */
@@ -800,7 +800,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read option value from input file */
           data = malloc(padding);
-          fread(data, padding, 1, pcap);
+          bytes = fread(data, padding, 1, pcap);
           left -= padding;
 
           /* copy option value into repaired block */
@@ -833,7 +833,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* read packet data from input file */
         data = malloc(padding);
-        fread(data, padding, 1, pcap);
+        bytes = fread(data, padding, 1, pcap);
         left -= padding;
 
         /* copy packet data into repaired block */
@@ -909,7 +909,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read option value from input file */
           data = malloc(padding);
-          fread(data, padding, 1, pcap);
+          bytes = fread(data, padding, 1, pcap);
           left -= padding;
 
           /* copy option value into repaired block */
@@ -983,6 +983,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 }
 
 int find_valid_block(FILE *pcap, unsigned long filesize) {
+  unsigned int bytes;
   unsigned long i;
   unsigned int check;                       /* variable to check end of blocks sizes */
   struct block_header bh;
@@ -992,7 +993,8 @@ int find_valid_block(FILE *pcap, unsigned long filesize) {
     fseek(pcap, i, SEEK_SET);
 
     /* read possbile block header */
-    fread(&bh, sizeof(bh), 1, pcap);
+    bytes = fread(&bh, sizeof(bh), 1, pcap);
+    if (bytes != 1) return(-1);
 
     /* check if:
      * - block header is greater than minimal size (12)
@@ -1002,7 +1004,7 @@ int find_valid_block(FILE *pcap, unsigned long filesize) {
 
       /* check if the second size value is valid too */
       fseek(pcap, i+bh.total_length-4, SEEK_SET);
-      fread(&check, sizeof(check), 1, pcap);
+      bytes = fread(&check, sizeof(check), 1, pcap);
       if (check == bh.total_length) {
         /* also the second block size value is correct! */
         printf("[+] GOT Next Block (Type: 0x%08x) at Position %ld\n", bh.block_type, i);

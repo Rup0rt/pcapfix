@@ -3,11 +3,11 @@ BINDIR = $(PREFIX)/bin
 DOCDIR = $(PREFIX)/share/doc
 MANDIR = $(PREFIX)/share/man
 
-OPTFLAGS = $(shell getconf LFS_CFLAGS)
-#WARNFLAGS = -Wno-unused-result
+OPTFLAGS = $(shell getconf LFS_CFLAGS) -D_FORTIFY_SOURCE=2 -g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -Wl,-z,relro
 WARNFLAGS = -Wall -Wextra -pedantic
 DEBUGFLAGS = -g
 CFLAGS += $(OPTFLAGS) $(WARNFLAGS) $(DEBUGFLAGS)
+LDFLAGS += -Wl,--as-needed
 
 all: pcap pcapng
 	gcc $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) pcapfix.c pcap.o pcapng.o -o pcapfix
