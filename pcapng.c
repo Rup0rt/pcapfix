@@ -126,7 +126,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         bh.total_length = ftell(pcap)-pos;
         printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
       } else {
-        printf("[*] No more valid Blocks found inside file! (maybe it was the last one)");
+        printf("[*] No more valid Blocks found inside file! (maybe it was the last one)\n");
         bh.total_length = filesize-pos;
         printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
       }
@@ -965,7 +965,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       printf("[*] Trying to align next block...\n");
       res = find_valid_block(pcap, filesize);
       if (res != 0) {
-        printf("[*] No more valid Blocks found inside file! (maybe it was the last one)");
+        printf("[*] No more valid Blocks found inside file! (maybe it was the last one)\n");
         break;
       }
 

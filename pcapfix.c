@@ -38,6 +38,7 @@ int deep_scan = 0;				      /* deep scan option (default: no deep scan) */
 int verbose = 0;				        /* verbose output option (default: dont be verbose) */
 int swapped = 0;			          /* pcap file is swapped (big endian) */
 int data_link_type = 1;		      /* data link type (default: LINKTYPE_ETHERNET) */
+int pcapng = 0;
 
 /* header placeholder */
 unsigned int header_magic;
@@ -54,8 +55,9 @@ unsigned int header_magic;
 void usage(char *progname) {
   printf("Usage: %s [OPTIONS] filename\n", progname);
   printf("OPTIONS:");
-  printf(  "\t-t <nr>, --data-link-type <nr>\tData link type (pcap only)\n");
-  printf("\t\t-d     , --deep-scan          \tDeep scan (pcap only)\n");
+  printf(  "\t-d     , --deep-scan          \tDeep scan (pcap only)\n");
+  printf("\t\t-n     , --pcapng             \tforce pcapng format\n");
+  printf("\t\t-t <nr>, --data-link-type <nr>\tData link type (pcap only)\n");
   printf("\t\t-v     , --verbose            \tVerbose output\n");
   printf("\n");
 }
@@ -158,8 +160,9 @@ int main(int argc, char *argv[]) {
 
   /* init getopt_long options struct */
   struct option long_options[] = {
-    {"data-link-type", required_argument, 0, 't'},		/* --data-link-type == -t */
     {"deep-scan", no_argument, 0, 'd'},				        /* --deep-scan == -d */
+    {"pcapng", no_argument, 0, 'n'},				          /* --pcapng == -n */
+    {"data-link-type", required_argument, 0, 't'},		/* --data-link-type == -t */
     {"verbose", no_argument, 0, 'v'},				          /* --verbose == -v */
     {0, 0, 0, 0}
   };
@@ -168,18 +171,21 @@ int main(int argc, char *argv[]) {
   printf("pcapfix %s (c) 2012-2013 Robert Krause\n\n", VERSION);
 
   /* scan for options and arguments */
-  while ((c = getopt_long(argc, argv, ":t:v::d::", long_options, &option_index)) != -1) {
+  while ((c = getopt_long(argc, argv, ":t:v::d::n::", long_options, &option_index)) != -1) {
     switch (c) {
       case 0:	/* getopt_long options evaluation */
         break;
       case 'd':	/* deep scan */
         deep_scan++;
         break;
-      case 'v':	/* verbose */
-        verbose++;
+      case 'n':	/* pcapng format */
+        pcapng++;
         break;
       case 't':	/* data link type */
         data_link_type = atoi(optarg);
+        break;
+      case 'v':	/* verbose */
+        verbose++;
         break;
       case '?': /* unknown option */
         usage(argv[0]);
@@ -214,7 +220,7 @@ int main(int argc, char *argv[]) {
   # else
     strcpy(filebname, basename(filename));		/* unix method (basename) */
   #endif
-  filename_fix = malloc(strlen(filebname)+6);	/* size of outputfile depends on inputfile's length */
+  filename_fix = malloc(strlen(filebname)+7);	/* size of outputfile depends on inputfile's length */
 
   /* prepare output file name: "fixed_" + inputfilename */
   strcpy(filename_fix, "fixed_");
@@ -272,12 +278,22 @@ int main(int argc, char *argv[]) {
       break;
     case PCAP_MAGIC:
       printf("[+] This is a PCAP file.\n");
-      res = fix_pcap(pcap, pcap_fix);
+      if (pcapng > 0) {
+        printf("[!] Your wish is my command! I will handle it as PCAPNG nevertheless.\n");
+        res = fix_pcapng(pcap, pcap_fix);
+      } else {
+        res = fix_pcap(pcap, pcap_fix);
+      }
       break;
     default:
       /* if the file type is unknown (header corrupted) assume classic PCAP format */
-      printf("[*] Unknown filetype. Assuming PCAP format.\n");
-      res = fix_pcap(pcap, pcap_fix);
+      if (pcapng > 0) {
+        printf("[*] Unknown filetype. Assuming PCAPNG format.\n");
+        res = fix_pcapng(pcap, pcap_fix);
+      } else {
+        printf("[*] Unknown filetype. Assuming PCAP format.\n");
+        res = fix_pcap(pcap, pcap_fix);
+      }
       break;
   }
 
