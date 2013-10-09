@@ -138,13 +138,18 @@ void print_progress(unsigned long pos, unsigned long filesize) {
  * argc:  number of cmd line args
  * argv:  array of pointers to cmd line args
  *
- * returns:  0  success
- *          -1  error (parameters)
- *          -2  error (cannot open input file)
- *          -3  error (cannot open output file for writing)
- *          -4  error (input file is empty)
- *          -5  error (input file is too small)
- *          -6  error (filetype is known but not supported)
+ * returns:  1    success (filed repaired)
+ *           0    success (nothing to fix)
+ *          -1    error (parameters)
+ *          -2    error (cannot open input file)
+ *          -3    error (cannot open output file for writing)
+ *          -4    error (input file is empty)
+ *          -5    error (input file is too small)
+ *          -6    error (filetype is known but not supported)
+ *          -11   error (not a pcap file)
+ *          -12   error (unable to recover pcap file)
+ *          -13   error (EOF while reading input file)
+ *          -255  error (unkown)
  *
  */
 int main(int argc, char *argv[]) {
@@ -298,20 +303,75 @@ int main(int argc, char *argv[]) {
   }
 
   /* evaluate result of fixing function */
-  if (res != 0) {
-    printf("[-] ERROR (%d)\n", res);
+  switch (res) {
+    case 0:
+      printf("[*] Your pcap file looks proper. Nothing to fix!\n");
 
-    fclose(pcap);
-    fclose(pcap_fix);
+      fclose(pcap);
+      fclose(pcap_fix);
 
-    /* delete output file due to failure */
-    remove(filename_fix);
-    return(10 + res);
+      /* delete output file due to no changes failure */
+      remove(filename_fix);
+
+      return(0);
+
+    case -1:
+      printf("[-] FAILED: This file does not seem to be a pcap file!\n\n");
+
+      fclose(pcap);
+      fclose(pcap_fix);
+
+      /* delete output file due to failure */
+      remove(filename_fix);
+
+      /* deep scan dependent output */
+      if (pcapng == 0) {
+        if (deep_scan == 0) printf("If you are SURE that there are pcap packets inside, try with deep scan option (-d) to find them!\n\n");
+        else printf("There is REALLY no pcap packet inside this file!!!\n\n");
+      }
+
+      return(res-10);
+
+    case -2:
+      printf("[-] FAILED: Unable to recover pcap file.\n\n");
+
+      if (!verbose) printf("Try executing pcapfix with -v option to trace the corruption!\n");
+      printf("You may help to improve pcapfix by sending your pcap file to ruport@f00l.de\n\n");
+
+      fclose(pcap);
+      fclose(pcap_fix);
+
+      /* delete output file due to failure */
+      remove(filename_fix);
+
+      return(res-10);
+
+    case -3:
+      printf("[-] FAILED: EOF while reading input file.\n\n");
+
+      if (!verbose) printf("Try executing pcapfix with -v option to trace the corruption!\n");
+      printf("You may help to improve pcapfix by sending your pcap file to ruport@f00l.de\n\n");
+
+      fclose(pcap);
+      fclose(pcap_fix);
+
+      /* delete output file due to failure */
+      remove(filename_fix);
+
+      return(res-10);
   }
 
-  /* Successful! */
-  printf("[+] SUCCESS\n");
+  if (res > 0) {
+    /* Successful repaired! (res > 0) */
+    printf("[+] SUCCESS: %d Corruption(s) fixed!\n\n", res);
+    return(1);
 
-  /* always return zero (might be changed later) */
-  return(0);
+  } else {
+
+    printf("[-] UNKNOWN ERROR (%d)\n\n", res);
+    printf("Please report this bug to ruport@f00l.de (including -v output).\n\n");
+    return(-255);
+
+  }
+
 }

@@ -115,8 +115,11 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
  * pcap:      file pointer to input file
  * pcap_fix:  file pointer to output file
  *
- * returns: 0   success (file was corrupted and has been successfully repaired)
- *          !=0 otherwise
+ * returns: >0   success (number of corruptions fixed)
+ *           0   success (nothing to fix)
+ *          -1   error (not a pcap file)
+ *          -2   error (unable to repair)
+ *          -3   error (EOF reached while reading input file)
  *
  */
 int fix_pcap(FILE *pcap, FILE *pcap_fix) {
@@ -148,7 +151,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
   printf("[*] Analyzing Global Header...\n");
   bytes = fread(&global_hdr, sizeof(global_hdr), 1, pcap);	/* read first bytes of input file into struct */
-  if (bytes != 1) return -1;
+  if (bytes != 1) return -3;
 
   /* init integrity counter */
   hdr_integ = 0;
@@ -543,50 +546,46 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
   /* EVALUATE RESULT */
 
-  /* no errors (header + packets correct) */
-  if ((hdr_integ == 0) && (corrupted == 0)) {	/* check allover failure / integrity count and corrupted counter */
+	/* check allover failure / integrity count and corrupted counter */
+  if ((hdr_integ == 0) && (corrupted == 0)) {
 
-    if (data_link_type == 1) { 	/* data link type has not been changed */
-      printf("Your pcap file looks proper. Nothing to fix!\n\n");
-      return(1);
-    } else { /* the user forces a new data link type, then we dont remove the file even if no corruption was detected */
-      printf("Your pcap file looks proper. Only data link type has been changed.\n\n");
-    }
+   /* no errors (header + packets correct) */
+   return(0);
 
-  /* anything was corrupted */
-
-  /* file could NOT be repaired */
   } else if (corrupted == -1) {	/* check vor very high packet failure value ==> no recovery possible */
 
-    /* if count == 1 then even the first packet was corrupted and no other packet could be found */
+    /* file could NOT be repaired */
+
     if (count == 1) {
-      printf("This file does not seem to be a pcap file!\n\n");
 
-      /* deep scan dependent output */
-      if (deep_scan == 0) printf("If you are SURE that there are pcap packets inside, try with deep scan option (-d) to find them!\n\n");
-      else printf("There is REALLY no pcap packet inside this file!!!\n\n");
+      /* even the first packet was corrupted and no other packet could be found */
 
-    /* the first packet was intact, but recovery is not possible nevertheless */
+      return(-1);
+
     } else {
-      printf("Unable to recover pcap file.\n\n");
-      if (!verbose) printf("Try executing pcapfix with -v option to trace the corruption!\n");
-      printf("You may help improving pcapfix by sending your pcap file to ruport@f00l.de\n\n");
+
+      /* the first packet was intact, but recovery is not possible nevertheless */
+
+      return(-2);
+
     }
 
-    /* delete output file due to repair impossible */
-    return(-1);
-
-  /* file has been successfully repaired (corruption fixed) */
   } else {
-    printf("Your pcap file has been successfully repaired (%d corrupted packet(s)).\n", corrupted);
-    printf("Wrote %u packets to file.\n\n", count-1);
+
+    /* file has been successfully repaired (corruption fixed) */
+
+    printf("[*] Wrote %u packets to file.\n", count-1);
 
     /* are there any packets that might have been transferred in ascii mode? */
     if (ascii) {
-      printf("This corruption seems to be a result of an ascii-mode transferred pcap file via FTP.\n");
-      printf("The pcap structure of those files can be repaired, but the data inside might still be corrupted!!!\n\n");
+      printf("[!] This corruption seems to be a result of an ascii-mode transferred pcap file via FTP.\n");
+      printf("[!] The pcap structure of those files can be repaired, but the data inside might still be corrupted!\n");
     }
 
+    return(corrupted);
+
   }
-  return(0);
+
+  /* unknown error */
+  return(-255);
 }

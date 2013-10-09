@@ -73,8 +73,11 @@ struct enhanced_packet_block {
  * pcap:      file pointer to input file
  * pcap_fix:  file pointer to output file
  *
- * returns: 0   success (file was corrupted and has been successfully repaired)
- *          !=0 otherwise
+ * returns: >0   success (number of corruptions fixed)
+ *           0   success (nothing to fix)
+ *          -1   error (not a pcap file)
+ *          -2   error (unable to repair)
+ *          -3   error (EOF while reading input file)
  *
  */
 int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
@@ -101,6 +104,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   unsigned int count;
   unsigned int shb_num;
   unsigned int idb_num;
+  int fixes;
   int res;
 
   /* get file size of input file */
@@ -110,6 +114,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   /* init positon of current block */
   pos = 0;
+  fixes = 0;
   shb_num = 0;
   idb_num = 0;
 
@@ -117,7 +122,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   while (pos < filesize) {
     /* read the header of the current block */
     bytes = fread(&bh, sizeof(bh), 1, pcap);
-    if (bytes != 1) return -1;
+    if (bytes != 1) return -3;
 
     if (bh.total_length > filesize-pos) {
       printf("[-] Block Length (%u) exceeds file size (%ld).\n", bh.total_length, filesize);
@@ -135,6 +140,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
       }
       fseek(pcap, pos+sizeof(struct block_header), SEEK_SET);
+
+      fixes++;
     }
 
     /* output information of current blocks header */
@@ -159,7 +166,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* read section header block into struct */
         bytes = fread(&shb, sizeof(shb), 1, pcap);
-        if (bytes != 1) return -1;
+        if (bytes != 1) return -3;
         left -= sizeof(shb);
 
         /* check for pcap's magic bytes () */
@@ -171,6 +178,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         } else {
           if (verbose) printf("[-] Unknown Byte Order Magic: 0x%x\n", shb.byte_order_magic);
           shb.byte_order_magic = BYTE_ORDER_MAGIC;
+          fixes++;
         }
 
         /* check for major version number (2) */
@@ -179,6 +187,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         } else {
           if (verbose) printf("[-] Major version number: %hu\n", conshort(shb.major_version));
           shb.major_version = conshort(1);
+          fixes++;
         }
 
         /* check for minor version number */
@@ -187,6 +196,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         } else {
           if (verbose) printf("[-] Minor version number: %hu\n", conshort(shb.minor_version));
           shb.minor_version = conshort(0);
+          fixes++;
         }
 
         /* section length */
@@ -208,7 +218,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read option header into struct */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
-          if (bytes != 1) return -1;
+          if (bytes != 1) return -3;
           left -= sizeof(oh);
 
           /* which option did we get ? */
@@ -241,6 +251,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
             /* do not write to repaired block */
             printf("SKIPPING OPTIONS...\n");
+
+            fixes++;
 
             if (count == 0) {
               printf("[*] No Options inside -> no need for End of Options...\n");
@@ -289,19 +301,22 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           printf("[-] No Section Block header found! Creating one...\n");
           write_shb(pcap_fix);
+          shb_num++;
+          fixes++;
         }
 
         printf("[+] Packet Block: 0x%08x\n", bh.block_type);
 
         /* read packet block into struct */
         bytes = fread(&pb, sizeof(pb), 1, pcap);
-        if (bytes != 1) return -1;
+        if (bytes != 1) return -3;
         left -= sizeof(pb);
 
         while (pb.interface_id >= idb_num) {
           printf("[-] Missing IDB for Interface Number #%u. Creating one...\n", pb.interface_id);
           write_idb(pcap_fix);
           idb_num++;
+          fixes++;
         }
 
         /* copy packet block into repaired block */
@@ -330,7 +345,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read options header */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
-          if (bytes != 1) return -1;
+          if (bytes != 1) return -3;
           left -= sizeof(oh);
 
           /* which option did we get ? */
@@ -359,6 +374,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
             /* do not write to repaired block */
             printf("SKIPPING OPTIONS...\n");
+
+            fixes++;
 
             if (count == 0) {
               printf("[*] No Options inside -> no need for End of Options...\n");
@@ -399,19 +416,22 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           count++;
         }
         break;
+
       /* Simple Packet Block */
       case TYPE_SPB:
 
         if (shb_num == 0) {
           printf("[-] No Section Block header found! Creating one...\n");
           write_shb(pcap_fix);
+          shb_num++;
+          fixes++;
         }
 
         printf("[+] Simple Packet Block: 0x%08x\n", bh.block_type);
 
         /* read simple packet block */
         bytes = fread(&spb, sizeof(spb), 1, pcap);
-        if (bytes != 1) return -1;
+        if (bytes != 1) return -3;
         left -= sizeof(spb);
 
         /* copy simple packet block into repaired file */
@@ -443,13 +463,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           printf("[-] No Section Block header found! Creating one...\n");
           write_shb(pcap_fix);
+          shb_num++;
+          fixes++;
         }
 
         printf("[+] Interface Description Block: 0x%08x\n", bh.block_type);
 
         /* read interface description block */
         bytes = fread(&idb, sizeof(idb), 1, pcap);	/* read first bytes of input file into struct */
-        if (bytes != 1) return -1;
+        if (bytes != 1) return -3;
         left -= sizeof(idb);
 
         /* copy interface description block into repaired block */
@@ -462,7 +484,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read options header */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
-          if (bytes != 1) return -1;
+          if (bytes != 1) return -3;
           left -= sizeof(oh);
 
           /* which option did we get? */
@@ -536,6 +558,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             /* do not write to repaired block */
             printf("SKIPPING OPTIONS...\n");
 
+            fixes++;
+
             if (count == 0) {
               printf("[*] No Options inside -> no need for End of Options...\n");
               break;
@@ -582,6 +606,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           printf("[-] No Section Block header found! Creating one...\n");
           write_shb(pcap_fix);
+          shb_num++;
+          fixes++;
         }
 
         printf("[+] Name Resolution Block: 0x%08x\n", bh.block_type);
@@ -592,7 +618,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read name resolution block */
           bytes = fread(&nrb, sizeof(nrb), 1, pcap);	/* read first bytes of input file into struct */
-          if (bytes != 1) return -1;
+          if (bytes != 1) return -3;
           left -= sizeof(nrb);
 
           /* which type of record did we get? */
@@ -617,6 +643,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
             /* do not write to repaired block */
             printf("SKIPPING RECORDS...\n");
+
+            fixes++;
 
             if (count == 0) {
               printf("[*] No Records inside -> no need for End of Records...\n");
@@ -664,7 +692,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read options header */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
-          if (bytes != 1) return -1;
+          if (bytes != 1) return -3;
           left -= sizeof(oh);
 
           /* which option did we get? */
@@ -697,6 +725,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
             /* do not write to repaired block */
             printf("SKIPPING OPTIONS...\n");
+
+            fixes++;
 
             if (count == 0) {
               printf("[*] No Options inside -> no need for End of Options...\n");
@@ -745,13 +775,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           printf("[-] No Section Block header found! Creating one...\n");
           write_shb(pcap_fix);
+          shb_num++;
+          fixes++;
         }
 
         printf("[+] Interface Statistics Block: 0x%08x\n", bh.block_type);
 
         /* read interface statistics block */
         bytes = fread(&isb, sizeof(isb), 1, pcap);
-        if (bytes != 1) return -1;
+        if (bytes != 1) return -3;
         left -= sizeof(isb);
 
         /* copy interface statistics block into repaired block */
@@ -764,7 +796,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read options header */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
-          if (bytes != 1) return -1;
+          if (bytes != 1) return -3;
           left -= sizeof(oh);
 
           /* which option did we get? */
@@ -814,6 +846,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             /* do not write to repaired block */
             printf("SKIPPING OPTIONS...\n");
 
+            fixes++;
+
             if (count == 0) {
               printf("[*] No Options inside -> no need for End of Options...\n");
               break;
@@ -860,19 +894,22 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           printf("[-] No Section Block header found! Creating one...\n");
           write_shb(pcap_fix);
+          shb_num++;
+          fixes++;
         }
 
         printf("[+] Enhanced Packet Block: 0x%08x\n", bh.block_type);
 
         /* read enhanced packet block */
         bytes = fread(&epb, sizeof(epb), 1, pcap);
-        if (bytes != 1) return -1;
+        if (bytes != 1) return -3;
         left -= sizeof(epb);
 
         while (epb.interface_id >= idb_num) {
           printf("[-] Missing IDB for Interface Number #%u. Creating one...\n", epb.interface_id);
           write_idb(pcap_fix);
           idb_num++;
+          fixes++;
         }
 
         /* copy enhanced packet block into repaired buffer */
@@ -901,7 +938,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* read option header */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
-          if (bytes != 1) return -1;
+          if (bytes != 1) return -3;
           left -= sizeof(oh);
 
           /* which option did we get? */
@@ -934,6 +971,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
             /* do not write to repaired block */
             printf("SKIPPING OPTIONS...\n");
+
+            fixes++;
 
             if (count == 0) {
               printf("[*] No Options inside -> no need for End of Options...\n");
@@ -982,11 +1021,18 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       printf("[-] Unknown block type!: 0x%08x\n", bh.block_type);
       printf("SKIPPING!\n");
 
+      fixes++;
+
     } else {
       /* write sizes of block header to correct positions */
       block_pos += sizeof(bh.total_length);
       memcpy(new_block+4, &block_pos, sizeof(bh.total_length));
       memcpy(new_block+block_pos-4, &block_pos, sizeof(bh.total_length));
+
+      if (block_pos != bh.total_length) {
+        printf("[*] Block size adjusted (%u --> %u).\n", bh.total_length, block_pos);
+        fixes++;
+      }
 
       /* write repaired block into output file */
       printf("Writing %u bytes...\n", block_pos);
@@ -1026,6 +1072,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       printf("[+] GOT Next Block at Position %ld\n", ftell(pcap));
 
+      fixes++;
+
     }
 
     /* set positon of next block */
@@ -1033,8 +1081,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   }
 
-  /* everything successfull - file has been repaired */
-  return(0);
+  /* everything successfull - return number of fixes */
+  return(fixes);
 }
 
 int find_valid_block(FILE *pcap, unsigned long filesize) {
