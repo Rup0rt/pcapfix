@@ -32,4 +32,6 @@ int find_valid_block(FILE *pcap, unsigned long filesize);
 
 int write_shb(FILE *pcap_fix);
 
+int write_idb(FILE *pcap_fix);
+
 #endif
