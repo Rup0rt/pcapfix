@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
   /* evaluate result of fixing function */
   switch (res) {
     case 0:
-      printf("[*] Your pcap file looks proper. Nothing to fix!\n");
+      printf("[*] Your pcap file looks proper. Nothing to fix!\n\n");
 
       fclose(pcap);
       fclose(pcap_fix);

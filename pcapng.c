@@ -125,27 +125,25 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     if (bytes != 1) return -3;
 
     if (bh.total_length > filesize-pos) {
-      printf("[-] Block Length (%u) exceeds file size (%ld).\n", bh.total_length, filesize);
+      if (verbose) printf("[-] Block Length (%u) exceeds file size (%ld).\n", bh.total_length, filesize);
 
       /* search for next valid block */
-      printf("[*] Trying to align next block...\n");
+      if (verbose) printf("[*] Trying to align next block...\n");
       res = find_valid_block(pcap, filesize);
       if (res == 0) {
-        printf("[+] GOT Next Block at Position %ld\n", ftell(pcap));
+        if (verbose) printf("[+] GOT Next Block at Position %ld\n", ftell(pcap));
         bh.total_length = ftell(pcap)-pos;
-        printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
       } else {
-        printf("[*] No more valid Blocks found inside file! (maybe it was the last one)\n");
+        if (verbose) printf("[*] No more valid Blocks found inside file! (maybe it was the last one)\n");
         bh.total_length = filesize-pos;
-        printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
       }
+      if (verbose) printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
       fseek(pcap, pos+sizeof(struct block_header), SEEK_SET);
+
+      if (verbose == 0) printf("[-] Invalid Block size => CORRECTED.\n");
 
       fixes++;
     }
-
-    /* output information of current blocks header */
-    printf("[*] Total Block Length: %u bytes\n", bh.total_length);
 
     /* how many bytes are left until the final block size (end of block) is reached */
     left = bh.total_length-sizeof(bh)-sizeof(check);
@@ -162,7 +160,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Section Header Block */
       case TYPE_SHB:
-        printf("[+] Section Header Block: 0x%08x\n", bh.block_type);
+        if (verbose) printf("[*] FOUND: Section Header Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* read section header block into struct */
         bytes = fread(&shb, sizeof(shb), 1, pcap);
@@ -176,7 +174,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (verbose) printf("[+] Byte Order Magic: 0x%x (SWAPPED)\n", shb.byte_order_magic);
           swapped = 1;
         } else {
-          if (verbose) printf("[-] Unknown Byte Order Magic: 0x%x\n", shb.byte_order_magic);
+          printf("[-] Unknown Byte Order Magic: 0x%x ==> CORRECTED.\n", shb.byte_order_magic);
           shb.byte_order_magic = BYTE_ORDER_MAGIC;
           fixes++;
         }
@@ -185,7 +183,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (conshort(shb.major_version) == 1) {	/* current major version is 2 */
           if (verbose) printf("[+] Major version number: %hu\n", conshort(shb.major_version));
         } else {
-          if (verbose) printf("[-] Major version number: %hu\n", conshort(shb.major_version));
+          printf("[-] Major version number: %hu ==> CORRECTED.\n", conshort(shb.major_version));
           shb.major_version = conshort(1);
           fixes++;
         }
@@ -194,17 +192,17 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (conshort(shb.minor_version) == 0) {	/* current minor version is 4 */
           if (verbose) printf("[+] Minor version number: %hu\n", conshort(shb.minor_version));
         } else {
-          if (verbose) printf("[-] Minor version number: %hu\n", conshort(shb.minor_version));
+          printf("[-] Minor version number: %hu ==> CORRECTED.\n", conshort(shb.minor_version));
           shb.minor_version = conshort(0);
           fixes++;
         }
 
         /* section length */
         if (shb.section_length == -1) {
-          printf("[*] Section length: %ld\n", shb.section_length);
+          if (verbose) printf("[*] Section length: %ld\n", shb.section_length);
 
         } else {
-          printf("[*] Section length: %ld (SETTING TO -1)\n", shb.section_length);
+          if (verbose) printf("[*] Section length: %ld ==> SETTING TO -1\n", shb.section_length);
           shb.section_length = -1;
         }
 
@@ -225,41 +223,38 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           switch (oh.option_code) {
             /* End of Options */
             case 0x00:
-              printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
               break;
             /* Comment Option */
             case 0x01:
-              printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
               break;
             /* Hardware Information */
             case 0x02:
-              printf("[+] OPTION: Hardware... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Hardware... (%u bytes)\n", oh.option_length);
               break;
             /* Operating System Information */
             case 0x03:
-              printf("[+] OPTION: Operating System... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Operating System... (%u bytes)\n", oh.option_length);
               break;
             /* User Application Information */
             case 0x04:
-              printf("[+] OPTION: Userappl... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Userappl... (%u bytes)\n", oh.option_length);
               break;
           }
 
           /* Invalid Option? */
           if (oh.option_code > 0x04) {
-            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
-
-            /* do not write to repaired block */
-            printf("SKIPPING OPTIONS...\n");
+            printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
             fixes++;
 
             if (count == 0) {
-              printf("[*] No Options inside -> no need for End of Options...\n");
+              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
-            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
             oh.option_code = 0x00;
             oh.option_length = 0x00;
@@ -299,13 +294,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       case TYPE_PB:
 
         if (shb_num == 0) {
-          printf("[-] No Section Block header found! Creating one...\n");
+          printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
           shb_num++;
           fixes++;
         }
 
-        printf("[+] Packet Block: 0x%08x\n", bh.block_type);
+        if (verbose >= 2) printf("[*] FOUND: Packet Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* read packet block into struct */
         bytes = fread(&pb, sizeof(pb), 1, pcap);
@@ -313,7 +308,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         left -= sizeof(pb);
 
         while (pb.interface_id >= idb_num) {
-          printf("[-] Missing IDB for Interface Number #%u. Creating one...\n", pb.interface_id);
+          printf("[-] Missing IDB for Interface #%u ==> CREATING (#%u).\n", pb.interface_id, idb_num);
           write_idb(pcap_fix);
           idb_num++;
           fixes++;
@@ -352,28 +347,25 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           switch (oh.option_code) {
             /* End of Options */
             case 0x00:
-              printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
               break;
             /* Comment Option */
             case 0x01:
-              printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
               break;
             /* Link Layer Flags */
             case 0x02:
-              printf("[+] OPTION: Link Layer Flags... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Link Layer Flags... (%u bytes)\n", oh.option_length);
               break;
             /* Packet Hash */
             case 0x03:
-              printf("[+] OPTION: Packet Hash... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Packet Hash... (%u bytes)\n", oh.option_length);
               break;
           }
 
           /* Invalid Option? */
           if (oh.option_code > 0x03) {
-            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
-
-            /* do not write to repaired block */
-            printf("SKIPPING OPTIONS...\n");
+            printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
             fixes++;
 
@@ -421,13 +413,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       case TYPE_SPB:
 
         if (shb_num == 0) {
-          printf("[-] No Section Block header found! Creating one...\n");
+          if (verbose) printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
           shb_num++;
           fixes++;
         }
 
-        printf("[+] Simple Packet Block: 0x%08x\n", bh.block_type);
+        if (verbose >= 2) printf("[*] FOUND: Simple Packet Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* read simple packet block */
         bytes = fread(&spb, sizeof(spb), 1, pcap);
@@ -461,13 +453,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       case TYPE_IDB:
 
         if (shb_num == 0) {
-          printf("[-] No Section Block header found! Creating one...\n");
+          printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
           shb_num++;
           fixes++;
         }
 
-        printf("[+] Interface Description Block: 0x%08x\n", bh.block_type);
+        if (verbose) printf("[*] FOUND: Interface Description Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* read interface description block */
         bytes = fread(&idb, sizeof(idb), 1, pcap);	/* read first bytes of input file into struct */
@@ -491,72 +483,69 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           switch (oh.option_code) {
             /* End of Options */
             case 0x00:
-              printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
               break;
             /* Comment Option */
             case 0x01:
-              printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
               break;
             /* Interface Name */
             case 0x02:
-              printf("[+] OPTION: Interface Name... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Interface Name... (%u bytes)\n", oh.option_length);
               break;
             /* Interface Description */
             case 0x03:
-              printf("[+] OPTION: Interface Description... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Interface Description... (%u bytes)\n", oh.option_length);
               break;
             /* IPv4 Address of Interface */
             case 0x04:
-              printf("[+] OPTION: IPv4 Address... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: IPv4 Address... (%u bytes)\n", oh.option_length);
               break;
             /* IPv6 Address of Interface */
             case 0x05:
-              printf("[+] OPTION: IPv6 Address... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: IPv6 Address... (%u bytes)\n", oh.option_length);
               break;
             /* MAC Address of Interface */
             case 0x06:
-              printf("[+] OPTION: MAC Address... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: MAC Address... (%u bytes)\n", oh.option_length);
               break;
             /* EUI Address of Interface */
             case 0x07:
-              printf("[+] OPTION: EUI Address... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: EUI Address... (%u bytes)\n", oh.option_length);
               break;
             /* Interface Speed */
             case 0x08:
-              printf("[+] OPTION: Interface Speed... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Interface Speed... (%u bytes)\n", oh.option_length);
               break;
             /* Resolution of Timestamps */
             case 0x09:
-              printf("[+] OPTION: Resolution of Timestamps... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Resolution of Timestamps... (%u bytes)\n", oh.option_length);
               break;
             /* Timezone */
             case 0x0a:
-              printf("[+] OPTION: Timezone... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Timezone... (%u bytes)\n", oh.option_length);
               break;
             /* Filter expression used */
             case 0x0b:
-              printf("[+] OPTION: Filter expression... (%u bytes)\n",  oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Filter expression... (%u bytes)\n",  oh.option_length);
               break;
             /* Operating System */
             case 0x0c:
-              printf("[+] OPTION: Operating System... (%u bytes)\n",  oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Operating System... (%u bytes)\n",  oh.option_length);
               break;
             /* Frame Check Sequence Length */
             case 0x0d:
-              printf("[+] OPTION: Frame Check Sequence Length... (%u bytes)\n",  oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Frame Check Sequence Length... (%u bytes)\n",  oh.option_length);
               break;
             /* Timestamp Offset */
             case 0x0e:
-              printf("[+] OPTION: Timestamp Offset... (%u bytes)\n",  oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Timestamp Offset... (%u bytes)\n",  oh.option_length);
               break;
           }
 
           /* Invalid Option? */
           if (oh.option_code > 0x0e) {
-            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
-
-            /* do not write to repaired block */
-            printf("SKIPPING OPTIONS...\n");
+            printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
             fixes++;
 
@@ -604,13 +593,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       case TYPE_NRB:
 
         if (shb_num == 0) {
-          printf("[-] No Section Block header found! Creating one...\n");
+          printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
           shb_num++;
           fixes++;
         }
 
-        printf("[+] Name Resolution Block: 0x%08x\n", bh.block_type);
+        if (verbose) printf("[*] FOUND: Name Resolution Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* process records */
         count = 0;
@@ -625,33 +614,30 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           switch (nrb.record_type) {
             /* End of Records */
             case 0x00:
-              printf("[+] RECORD: End of Records... (%u bytes)\n", nrb.record_length);
+              if (verbose >= 2) printf("[+] RECORD: End of Records... (%u bytes)\n", nrb.record_length);
               break;
             /* IPv4 Record */
             case 0x01:
-              printf("[+] RECORD: IPv4 Record... (%u bytes)\n", nrb.record_length);
+              if (verbose >= 2) printf("[+] RECORD: IPv4 Record... (%u bytes)\n", nrb.record_length);
               break;
             /* IPv6 Record */
             case 0x02:
-              printf("[+] RECORD: IPv6 Record... (%u bytes)\n", nrb.record_length);
+              if (verbose >= 2) printf("[+] RECORD: IPv6 Record... (%u bytes)\n", nrb.record_length);
               break;
           }
 
           /* Invalid Record? */
           if (nrb.record_type > 0x02) {
-            printf("[-] RECORD: Unknown record type: 0x%04x (%u bytes)\n", nrb.record_type, nrb.record_length);
-
-            /* do not write to repaired block */
-            printf("SKIPPING RECORDS...\n");
+            printf("[-] Unknown record type: 0x%04x (%u bytes) ==> SKIPPING.\n", nrb.record_type, nrb.record_length);
 
             fixes++;
 
             if (count == 0) {
-              printf("[*] No Records inside -> no need for End of Records...\n");
+              if (verbose) printf("[*] No Records inside -> no need for End of Records...\n");
               break;
             }
 
-            printf("[*] %u Records inside -> Finishing with End of Records...\n", count);
+            if (verbose) printf("[*] %u Records inside -> Finishing with End of Records...\n", count);
 
             oh.option_code = 0x00;
             oh.option_length = 0x00;
@@ -699,41 +685,38 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           switch (oh.option_code) {
             /* End of Options */
             case 0x00:
-              printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
               break;
             /* Comment Option */
             case 0x01:
-              printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
               break;
             /* DNS Server Name */
             case 0x02:
-              printf("[+] OPTION: DNS Server... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: DNS Server... (%u bytes)\n", oh.option_length);
               break;
             /* DNS Server IPv4 Address */
             case 0x03:
-              printf("[+] OPTION: IPv4 Address of DNS Server... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: IPv4 Address of DNS Server... (%u bytes)\n", oh.option_length);
               break;
             /* DNS Server IPv6 Address */
             case 0x04:
-              printf("[+] OPTION: IPv6 Address of DNS Server... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: IPv6 Address of DNS Server... (%u bytes)\n", oh.option_length);
               break;
           }
 
           /* Invalid Option? */
           if (oh.option_code > 0x04) {
-            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
-
-            /* do not write to repaired block */
-            printf("SKIPPING OPTIONS...\n");
+            printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
             fixes++;
 
             if (count == 0) {
-              printf("[*] No Options inside -> no need for End of Options...\n");
+              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
-            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
             oh.option_code = 0x00;
             oh.option_length = 0x00;
@@ -773,13 +756,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       case TYPE_ISB:
 
         if (shb_num == 0) {
-          printf("[-] No Section Block header found! Creating one...\n");
+          printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
           shb_num++;
           fixes++;
         }
 
-        printf("[+] Interface Statistics Block: 0x%08x\n", bh.block_type);
+        if (verbose) printf("[*] FOUND: Interface Statistics Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* read interface statistics block */
         bytes = fread(&isb, sizeof(isb), 1, pcap);
@@ -803,57 +786,54 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           switch (oh.option_code) {
             /* End of Options */
             case 0x00:
-              printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
               break;
             /* Comment Option */
             case 0x01:
-              printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
               break;
             /* Capture Start Time */
             case 0x02:
-              printf("[+] OPTION: Capture Start Time... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Capture Start Time... (%u bytes)\n", oh.option_length);
               break;
             /* Capture End Time */
             case 0x03:
-              printf("[+] OPTION: Capture End Time... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Capture End Time... (%u bytes)\n", oh.option_length);
               break;
             /* Packets recieved */
             case 0x04:
-              printf("[+] OPTION: Packets recieved... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Packets recieved... (%u bytes)\n", oh.option_length);
               break;
             /* Packets dropped */
             case 0x05:
-              printf("[+] OPTION: Packets dropped... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Packets dropped... (%u bytes)\n", oh.option_length);
               break;
             /* Packets accepted by Filter */
             case 0x06:
-              printf("[+] OPTION: Filter packets accepted... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Filter packets accepted... (%u bytes)\n", oh.option_length);
               break;
             /* Packets dropped by Operating System */
             case 0x07:
-              printf("[+] OPTION: Packets dropped by OS... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Packets dropped by OS... (%u bytes)\n", oh.option_length);
               break;
             /* Packets delivered to user */
             case 0x08:
-              printf("[+] OPTION: Packets delivered to user... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Packets delivered to user... (%u bytes)\n", oh.option_length);
               break;
           }
 
           /* Invalid Option? */
           if (oh.option_code > 0x08) {
-            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
-
-            /* do not write to repaired block */
-            printf("SKIPPING OPTIONS...\n");
+            printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
             fixes++;
 
             if (count == 0) {
-              printf("[*] No Options inside -> no need for End of Options...\n");
+              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
-            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
             oh.option_code = 0x00;
             oh.option_length = 0x00;
@@ -892,13 +872,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       case TYPE_EPB:
 
         if (shb_num == 0) {
-          printf("[-] No Section Block header found! Creating one...\n");
+          printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
           shb_num++;
           fixes++;
         }
 
-        printf("[+] Enhanced Packet Block: 0x%08x\n", bh.block_type);
+        if (verbose >= 2) printf("[*] FOUND: Enhanced Packet Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* read enhanced packet block */
         bytes = fread(&epb, sizeof(epb), 1, pcap);
@@ -906,7 +886,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         left -= sizeof(epb);
 
         while (epb.interface_id >= idb_num) {
-          printf("[-] Missing IDB for Interface Number #%u. Creating one...\n", epb.interface_id);
+          printf("[-] Missing IDB for Interface #%u ==> CREATING (#%u).\n", pb.interface_id, idb_num);
           write_idb(pcap_fix);
           idb_num++;
           fixes++;
@@ -945,41 +925,38 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           switch (oh.option_code) {
             /* End of Options */
             case 0x00:
-              printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
               break;
             /* Comment Option */
             case 0x01:
-              printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
               break;
             /* Link Layer Flags */
             case 0x02:
-              printf("[+] OPTION: Link Layer Flags... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Link Layer Flags... (%u bytes)\n", oh.option_length);
               break;
             /* Packet Hash */
             case 0x03:
-              printf("[+] OPTION: Packet Hash... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Packet Hash... (%u bytes)\n", oh.option_length);
               break;
             /* Dropped Packets */
             case 0x04:
-              printf("[+] OPTION: Dropped Packets Counter... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Dropped Packets Counter... (%u bytes)\n", oh.option_length);
               break;
           }
 
           /* Invalid Option? */
           if (oh.option_code > 0x04) {
-            printf("[-] OPTION: Unknown option code: 0x%04x (%u bytes)\n", oh.option_code, oh.option_length);
-
-            /* do not write to repaired block */
-            printf("SKIPPING OPTIONS...\n");
+            printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
             fixes++;
 
             if (count == 0) {
-              printf("[*] No Options inside -> no need for End of Options...\n");
+              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
-            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
             oh.option_code = 0x00;
             oh.option_length = 0x00;
@@ -1018,8 +995,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
     /* check for invalid block header type */
     if (bh.block_type != TYPE_SHB && bh.block_type > TYPE_EPB) {
-      printf("[-] Unknown block type!: 0x%08x\n", bh.block_type);
-      printf("SKIPPING!\n");
+      printf("[-] Unknown block type!: 0x%08x ==> SKIPPING.\n", bh.block_type);
 
       fixes++;
 
@@ -1030,12 +1006,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       memcpy(new_block+block_pos-4, &block_pos, sizeof(bh.total_length));
 
       if (block_pos != bh.total_length) {
-        printf("[*] Block size adjusted (%u --> %u).\n", bh.total_length, block_pos);
+        if (verbose) printf("[*] Block size adjusted (%u --> %u).\n", bh.total_length, block_pos);
         fixes++;
       }
 
       /* write repaired block into output file */
-      printf("Writing %u bytes...\n", block_pos);
+      if (verbose >= 2) printf("[*] Writing block to file (%u bytes).\n", block_pos);
       fwrite(new_block, block_pos, 1, pcap_fix);
       free(new_block);
 
@@ -1045,10 +1021,10 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
     /* did we process all bytes of the block - given by block length */
     if (left == 0) {
-      printf("[+] End of Block reached... byte counter is correct!\n");
+      if (verbose >= 2) printf("[+] End of Block reached... byte counter is correct!\n");
     } else {
       /* we did not read until end of block - maybe due to option skipping */
-      printf("[-] Something went wrong! This should not be the end of the block! (%ld bytes left)\n", left);
+      if (verbose) printf("[-] Did not hit the end of the block! (%ld bytes left)\n", left);
     }
 
     /* check for correct block end (block size) */
@@ -1056,23 +1032,24 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
     /* block header sizes do not match! */
     if (check == bh.total_length) {
-      printf("[+] Block size matches (%u)!\n", check);
+      if (verbose >= 2) printf("[+] Block size matches (%u)!\n", check);
     } else {
-      printf("[-] Block size mismatch (%u != %u)!\n", check, bh.total_length);
+      bytes = ftell(pcap);
+      printf("[-] Block size mismatch (%u != %u) ==> CORRECTED.\n", check, bh.total_length);
 
       /* we did not hit the end of block - need to search for next one */
 
       /* search for next valid block */
-      printf("[*] Trying to align next block...\n");
+      if (verbose) printf("[*] Trying to align next block...\n");
       res = find_valid_block(pcap, filesize);
-      if (res != 0) {
-        printf("[*] No more valid Blocks found inside file! (maybe it was the last one)\n");
-        break;
-      }
-
-      printf("[+] GOT Next Block at Position %ld\n", ftell(pcap));
+      printf("[-] Found %ld bytes of unknown data ==> SKIPPING.\n", ftell(pcap)-bytes);
 
       fixes++;
+
+      if (res != 0) {
+        if (verbose) printf("[*] No more valid blocks found inside file! (maybe it was the last one)\n");
+        break;
+      }
 
     }
 
@@ -1110,7 +1087,7 @@ int find_valid_block(FILE *pcap, unsigned long filesize) {
       bytes = fread(&check, sizeof(check), 1, pcap);
       if (check == bh.total_length) {
         /* also the second block size value is correct! */
-        printf("[+] GOT Next Block (Type: 0x%08x) at Position %ld\n", bh.block_type, i);
+        if (verbose) printf("[+] FOUND: Block (Type: 0x%08x) at Position %ld\n", bh.block_type, i);
 
         /* set pointer to next block position */
         fseek(pcap, i, SEEK_SET);
