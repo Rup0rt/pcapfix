@@ -275,16 +275,27 @@ int main(int argc, char *argv[]) {
 
   /* check for file type */
   switch (header_magic) {
+
+    /* SNOOP file format --> often used with pcapfix but NOT supported (yet) */
     case SNOOP_MAGIC:
       printf("[-] This is a SNOOP file, which is not supported.\n\n");
+
+      /* close input and output files */
       fclose(pcap);
       fclose(pcap_fix);
+
+      /* delete output file due to no changes failure */
       remove(filename_fix);
+
       return(-6);
+
+    /* PCAPNG format */
     case PCAPNG_MAGIC:
       printf("[+] This is a PCAPNG file.\n");
       res = fix_pcapng(pcap, pcap_fix);
       break;
+
+    /* classic PCAP format */
     case PCAP_MAGIC:
       printf("[+] This is a PCAP file.\n");
       if (pcapng > 0) {
@@ -294,8 +305,9 @@ int main(int argc, char *argv[]) {
         res = fix_pcap(pcap, pcap_fix);
       }
       break;
+
+    /* if the file type is unknown (maybe header corrupted) assume classic PCAP format */
     default:
-      /* if the file type is unknown (header corrupted) assume classic PCAP format */
       if (pcapng > 0) {
         printf("[*] Unknown filetype. Assuming PCAPNG format.\n");
         res = fix_pcapng(pcap, pcap_fix);
@@ -308,9 +320,12 @@ int main(int argc, char *argv[]) {
 
   /* evaluate result of fixing function */
   switch (res) {
+
+    /* no corruption found; all fields were valid */
     case 0:
       printf("[*] Your pcap file looks proper. Nothing to fix!\n\n");
 
+      /* close input and output files */
       fclose(pcap);
       fclose(pcap_fix);
 
@@ -319,9 +334,11 @@ int main(int argc, char *argv[]) {
 
       return(0);
 
+    /* there is NO indication that this has ever been a pcap file at all */
     case -1:
       printf("[-] FAILED: This file does not seem to be a pcap/pcapng file!\n\n");
 
+      /* close input and output files */
       fclose(pcap);
       fclose(pcap_fix);
 
@@ -336,12 +353,15 @@ int main(int argc, char *argv[]) {
 
       return(res-10);
 
+    /* it seems to be a pcap file, but pcapfix can NOT repair it (yet) */
     case -2:
       printf("[-] FAILED: Unable to recover pcap file.\n\n");
 
+      /* some hints for verbose mode and pcapfix improvement support */
       if (!verbose) printf("Try executing pcapfix with -v option to trace the corruption!\n");
       printf("You may help to improve pcapfix by sending your pcap file to ruport@f00l.de\n\n");
 
+      /* close input and output files */
       fclose(pcap);
       fclose(pcap_fix);
 
@@ -350,12 +370,15 @@ int main(int argc, char *argv[]) {
 
       return(res-10);
 
+    /* fread did not succeed; might be caused by early EOF; but it should NOT happen at all */
     case -3:
       printf("[-] FAILED: EOF while reading input file.\n\n");
 
+      /* some hints for verbose mode and pcapfix improvement support */
       if (!verbose) printf("Try executing pcapfix with -v option to trace the corruption!\n");
       printf("You may help to improve pcapfix by sending your pcap file to ruport@f00l.de\n\n");
 
+      /* close input and output files */
       fclose(pcap);
       fclose(pcap_fix);
 
@@ -365,15 +388,19 @@ int main(int argc, char *argv[]) {
       return(res-10);
   }
 
+  /* file has been progressed properly. what is the result (number of corruptions)? */
+
   if (res > 0) {
     /* Successful repaired! (res > 0) */
+
     printf("[+] SUCCESS: %d Corruption(s) fixed!\n\n", res);
     return(1);
 
   } else {
+    /* Unknown Error (res < 0); this should NEVER happen! */
 
     printf("[-] UNKNOWN ERROR (%d)\n\n", res);
-    printf("Please report this bug to ruport@f00l.de (including -v output).\n\n");
+    printf("Please report this bug to ruport@f00l.de (including -v -v output).\n\n");
     return(-255);
 
   }

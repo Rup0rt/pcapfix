@@ -133,12 +133,13 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   unsigned long pos = 0;			            /* position of current packet header */
   unsigned long nextpos = 0;			        /* possible position of next packets header */
   unsigned long bytes;				            /* read/written bytes counter (unused yet) */
+  unsigned long filesize;                 /* filesize of input file in bytes */
   unsigned int count;				              /* packet counter */
-  unsigned int step = 0;
-  unsigned long filesize;
+  unsigned int step = 0;                  /* step counter for progress bar */
   unsigned int last_correct_ts_sec = 0;		/* timestamp of the last proper packet found (seconds) */
   unsigned int last_correct_ts_usec = 0;	/* timestamp of the last proper packet found (microseconds or nanoseconds) */
   unsigned short hdr_integ;			          /* integrity counter of global header */
+
   int ascii = 0;				                  /* ascii counter for possible ascii-corrupted packets */
   int corrupted = 0;				              /* corrupted packet counter for final output */
   int res;					                      /* the result of the header check == the offset of body shifting */
@@ -274,7 +275,9 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
    * if not check for overlapping packets.
    */
 
-  pos = ftell(pcap);	/* get current file pointer position */
+
+	/* get current file pointer position */
+	pos = ftell(pcap);
 
   /* loop the pcap files packets until pos has reacher end of file */
   for (count=1; pos < filesize; count++) {
@@ -550,8 +553,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
   /* EVALUATE RESULT */
 
-	/* check allover failure / integrity count and corrupted counter */
-  if ((hdr_integ == 0) && (corrupted == 0)) {
+	if ((hdr_integ == 0) && (corrupted == 0)) { /* check allover failure / integrity count and corrupted counter */
 
    /* no errors (header + packets correct) */
    return(0);
@@ -563,13 +565,11 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
     if (count == 1) {
 
       /* even the first packet was corrupted and no other packet could be found */
-
       return(-1);
 
     } else {
 
       /* the first packet was intact, but recovery is not possible nevertheless */
-
       return(-2);
 
     }
@@ -590,6 +590,4 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
   }
 
-  /* unknown error */
-  return(-255);
 }

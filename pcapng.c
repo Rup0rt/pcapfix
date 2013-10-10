@@ -94,34 +94,37 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   char *data;                               /* Storage for packet data */
   char *new_block;                          /* Storage for new (maybe repaired) block to finally write into ouput file */
 
-  unsigned int block_pos;                   /* current position inside -new_block- to write further data to */
   unsigned long bytes;                      /* written bytes/blocks counter */
-  unsigned int check;                       /* variable to check end of blocks sizes */
   unsigned long padding;                    /* calculation for padding bytes */
   unsigned long pos;                        /* current block position in input file */
   unsigned long filesize;                   /* size of input file */
-  unsigned int count;
-  unsigned int shb_num;
-  unsigned int idb_num;
-  unsigned int step = 0;
-  int fixes;
-  int res;
+  unsigned int block_pos;                   /* current position inside -new_block- to write further data to */
+  unsigned int check;                       /* variable to check end of blocks sizes */
+  unsigned int count;                       /* option / record counter to create EOO/EOR if necessary */
+  unsigned int shb_num;                     /* number of SHB counter */
+  unsigned int idb_num;                     /* number of IDB counter */
+  unsigned int step;                        /* step counter for progress bar */
+
   long left;                                /* bytes left to proceed until current blocks end is reached */
+  int fixes;                                /* corruptions counter */
+  int res;                                  /* return values */
 
   /* get file size of input file */
   fseek(pcap, 0, SEEK_END);
   filesize = ftell(pcap);
   fseek(pcap, 0, SEEK_SET);
 
-  /* init positon of current block */
-  pos = 0;
-  fixes = 0;
-  shb_num = 0;
-  idb_num = 0;
+  /* init variables */
+  pos = 0;            /* begin file check at position 0 */
+  fixes = 0;          /* no corruptions fixed yet */
+  shb_num = 0;        /* no SHBs progressed yet */
+  idb_num = 0;        /* no IDBs progressed yet */
+  step = 0;           /* progress bar starts at 0 steps */
 
   /* loop every block inside pcapng file until end of file is reached */
   while (pos < filesize) {
 
+    /* print out progress bar if in non-verbose mode */
     if ((verbose == 0) && (100*pos/filesize > step)) {
       print_progress(pos, filesize);
       step++;
@@ -131,24 +134,42 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     bytes = fread(&bh, sizeof(bh), 1, pcap);
     if (bytes != 1) return -3;
 
+    /* check for invalid block length / file cut off */
     if (bh.total_length > filesize-pos) {
+      /* block size is larger than bytes in input file */
+
       if (verbose) printf("[-] Block Length (%u) exceeds file size (%ld).\n", bh.total_length, filesize);
 
       /* search for next valid block */
       if (verbose) printf("[*] Trying to align next block...\n");
       res = find_valid_block(pcap, filesize);
+
+      /* block found? */
       if (res == 0) {
+        /* another valid block has been found in the file */
+
         if (verbose) printf("[+] GOT Next Block at Position %ld\n", ftell(pcap));
+
+        /* adjust total blocks length to match next block */
         bh.total_length = ftell(pcap)-pos;
+
       } else {
+        /* there are no more blocks inside the file */
+
         if (verbose) printf("[*] No more valid Blocks found inside file! (maybe it was the last one)\n");
+
+        /* adjust total blocks length to end of file */
         bh.total_length = filesize-pos;
+
       }
+
       if (verbose) printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
+      else printf("[-] Invalid Block size => CORRECTED.\n");
+
+      /* reset input file pointer behind block header */
       fseek(pcap, pos+sizeof(struct block_header), SEEK_SET);
 
-      if (verbose == 0) printf("[-] Invalid Block size => CORRECTED.\n");
-
+      /* increase corruptions counter */
       fixes++;
     }
 
@@ -254,15 +275,21 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_code > 0x04) {
             printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
+            /* increase corruptions counter */
             fixes++;
 
+            /* is this the first option we check? */
             if (count == 0) {
+              /* there are NO options inside this block; skipping EOO option */
               if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
+            /* there have been other options before this corruption, we need EOO option */
+
             if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
+            /* adjust option header to end of options */
             oh.option_code = 0x00;
             oh.option_length = 0x00;
           }
@@ -300,9 +327,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* Packet Block */
       case TYPE_PB:
 
+        /* check for the mandatory SBH that MUST be before any packet! */
         if (shb_num == 0) {
+          /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
+
+          /* increase counters */
           shb_num++;
           fixes++;
         }
@@ -314,9 +345,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (bytes != 1) return -3;
         left -= sizeof(pb);
 
+        /* check for the mandatory IDB that MUST identify every packets interface_id */
         while (pb.interface_id >= idb_num) {
+          /* no IDB identifying this packet, we need to create one - until the ID is reached */
           printf("[-] Missing IDB for Interface #%u ==> CREATING (#%u).\n", pb.interface_id, idb_num);
           write_idb(pcap_fix);
+
+          /* increase counters */
           idb_num++;
           fixes++;
         }
@@ -374,15 +409,21 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_code > 0x03) {
             printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
+            /* increase corruptions counter */
             fixes++;
 
+            /* is this the first option we check? */
             if (count == 0) {
-              printf("[*] No Options inside -> no need for End of Options...\n");
+              /* there are NO options inside this block; skipping EOO option */
+              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
-            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            /* there have been other options before this corruption, we need EOO option */
 
+            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            /* adjust option header to end of options */
             oh.option_code = 0x00;
             oh.option_length = 0x00;
           }
@@ -419,9 +460,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* Simple Packet Block */
       case TYPE_SPB:
 
+        /* check for the mandatory SBH that MUST be before any packet! */
         if (shb_num == 0) {
-          if (verbose) printf("[-] No Section Block header found ==> CREATING.\n");
+          /* no SBH before this packet, we NEED to create one */
+          printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
+
+          /* increase counters */
           shb_num++;
           fixes++;
         }
@@ -459,9 +504,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* Interface Description Block */
       case TYPE_IDB:
 
+        /* check for the mandatory SBH that MUST be before any packet! */
         if (shb_num == 0) {
+          /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
+
+          /* increase counters */
           shb_num++;
           fixes++;
         }
@@ -554,15 +603,21 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_code > 0x0e) {
             printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
+            /* increase corruptions counter */
             fixes++;
 
+            /* is this the first option we check? */
             if (count == 0) {
-              printf("[*] No Options inside -> no need for End of Options...\n");
+              /* there are NO options inside this block; skipping EOO option */
+              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
-            printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            /* there have been other options before this corruption, we need EOO option */
 
+            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            /* adjust option header to end of options */
             oh.option_code = 0x00;
             oh.option_length = 0x00;
           }
@@ -599,9 +654,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* Name Resolution Block */
       case TYPE_NRB:
 
+        /* check for the mandatory SBH that MUST be before any packet! */
         if (shb_num == 0) {
+          /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
+
+          /* increase counters */
           shb_num++;
           fixes++;
         }
@@ -637,17 +696,23 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (nrb.record_type > 0x02) {
             printf("[-] Unknown record type: 0x%04x (%u bytes) ==> SKIPPING.\n", nrb.record_type, nrb.record_length);
 
+            /* increase corruptions counter */
             fixes++;
 
+            /* is this the first record we check? */
             if (count == 0) {
+              /* there are NO records inside this block; skipping EOR record */
               if (verbose) printf("[*] No Records inside -> no need for End of Records...\n");
               break;
             }
 
+            /* there have been other records before this corruption, we need EOR record */
+
             if (verbose) printf("[*] %u Records inside -> Finishing with End of Records...\n", count);
 
-            oh.option_code = 0x00;
-            oh.option_length = 0x00;
+            /* adjust option header to end of options */
+            nrb.record_type = 0x00;
+            nrb.record_length = 0x00;
           }
 
           /* record is valid */
@@ -716,15 +781,21 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_code > 0x04) {
             printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
+            /* increase corruptions counter */
             fixes++;
 
+            /* is this the first option we check? */
             if (count == 0) {
+              /* there are NO options inside this block; skipping EOO option */
               if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
+            /* there have been other options before this corruption, we need EOO option */
+
             if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
+            /* adjust option header to end of options */
             oh.option_code = 0x00;
             oh.option_length = 0x00;
           }
@@ -762,9 +833,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* Interface Statistics Block */
       case TYPE_ISB:
 
+        /* check for the mandatory SBH that MUST be before any packet! */
         if (shb_num == 0) {
+          /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
+
+          /* increase counters */
           shb_num++;
           fixes++;
         }
@@ -833,15 +908,21 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_code > 0x08) {
             printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
+            /* increase corruptions counter */
             fixes++;
 
+            /* is this the first option we check? */
             if (count == 0) {
+              /* there are NO options inside this block; skipping EOO option */
               if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
+            /* there have been other options before this corruption, we need EOO option */
+
             if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
+            /* adjust option header to end of options */
             oh.option_code = 0x00;
             oh.option_length = 0x00;
           }
@@ -878,9 +959,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* Enhanced Packet Block */
       case TYPE_EPB:
 
+        /* check for the mandatory SBH that MUST be before any packet! */
         if (shb_num == 0) {
+          /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
           write_shb(pcap_fix);
+
+          /* increase counters */
           shb_num++;
           fixes++;
         }
@@ -892,9 +977,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (bytes != 1) return -3;
         left -= sizeof(epb);
 
-        while (epb.interface_id >= idb_num) {
+        /* check for the mandatory IDB that MUST identify every packets interface_id */
+        while (pb.interface_id >= idb_num) {
+          /* no IDB identifying this packet, we need to create one - until the ID is reached */
           printf("[-] Missing IDB for Interface #%u ==> CREATING (#%u).\n", pb.interface_id, idb_num);
           write_idb(pcap_fix);
+
+          /* increase counters */
           idb_num++;
           fixes++;
         }
@@ -956,15 +1045,21 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_code > 0x04) {
             printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
+            /* increase corruptions counter */
             fixes++;
 
+            /* is this the first option we check? */
             if (count == 0) {
+              /* there are NO options inside this block; skipping EOO option */
               if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
+            /* there have been other options before this corruption, we need EOO option */
+
             if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
+            /* adjust option header to end of options */
             oh.option_code = 0x00;
             oh.option_length = 0x00;
           }
@@ -1002,18 +1097,27 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
     /* check for invalid block header type */
     if (bh.block_type != TYPE_SHB && bh.block_type > TYPE_EPB) {
+      /* this block type is ńot know */
+
       printf("[-] Unknown block type!: 0x%08x ==> SKIPPING.\n", bh.block_type);
 
+      /* increase corruption counter */
       fixes++;
 
     } else {
+      /* this block type is valid */
+
       /* write sizes of block header to correct positions */
       block_pos += sizeof(bh.total_length);
       memcpy(new_block+4, &block_pos, sizeof(bh.total_length));
       memcpy(new_block+block_pos-4, &block_pos, sizeof(bh.total_length));
 
+      /* check wether the real size matches the size formerly specified in block header */
       if (block_pos != bh.total_length) {
+        /* specified size in block header does NOT match the real block size (maybe due to fixed corruptions) */
         if (verbose) printf("[*] Block size adjusted (%u --> %u).\n", bh.total_length, block_pos);
+
+        /* increase corruption counter */
         fixes++;
       }
 
@@ -1022,12 +1126,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       fwrite(new_block, block_pos, 1, pcap_fix);
       free(new_block);
 
+      /* increate SHB / IDB counters */
       if (bh.block_type == TYPE_SHB) shb_num++;
       if (bh.block_type == TYPE_IDB) idb_num++;
     }
 
     /* did we process all bytes of the block - given by block length */
     if (left == 0) {
+      /* all bytes processed */
       if (verbose >= 2) printf("[+] End of Block reached... byte counter is correct!\n");
     } else {
       /* we did not read until end of block - maybe due to option skipping */
@@ -1037,23 +1143,33 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     /* check for correct block end (block size) */
     bytes = fread(&check, sizeof(check), 1, pcap);
 
-    /* block header sizes do not match! */
+    /* read the second block length field and check first block size field */
     if (check == bh.total_length) {
+      /* first and second block header size do match */
       if (verbose >= 2) printf("[+] Block size matches (%u)!\n", check);
     } else {
-      bytes = ftell(pcap);
-      printf("[-] Block size mismatch (%u != %u) ==> CORRECTED.\n", check, bh.total_length);
+      /* block header sizes do not match! */
+
+      printf("[-] Block size mismatch (0x%08x != 0x%08x) ==> CORRECTED.\n", check, bh.total_length);
 
       /* we did not hit the end of block - need to search for next one */
+
+      /* remeber current position to know how much bytes have been skipped */
+      bytes = ftell(pcap);
 
       /* search for next valid block */
       if (verbose) printf("[*] Trying to align next block...\n");
       res = find_valid_block(pcap, filesize);
+
+      /* output information about skipped bytes */
       printf("[-] Found %ld bytes of unknown data ==> SKIPPING.\n", ftell(pcap)-bytes);
 
+      /* increase corruption counter */
       fixes++;
 
-      if (res != 0) {
+      /* did we find a next block at all? */
+      if (res == -1) {
+        /* EOF reached while searching --> no more blocks */
         if (verbose) printf("[*] No more valid blocks found inside file! (maybe it was the last one)\n");
         break;
       }
@@ -1065,12 +1181,28 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   }
 
+  /* FILE HAS BEEN COMPLETELY CHECKED */
+
+  /* did we write any SHB blocks at all?
+   * if not this seems to be no pcapng file! */
   if (shb_num == 0) return(-1);
 
   /* everything successfull - return number of fixes */
   return(fixes);
 }
 
+/*
+ * Function:  find_valid_block
+ * ---------------------------
+ * searches for the next valid block beginning at current file pointer position
+ *
+ * pcap:      file pointer to input file
+ * filesize:  size of input file in bytes
+ *
+ * returns:  0   success (next block header has been found, file pointer is set to start of block)
+ *          -1   error (reached EOF without finding a valid block)
+ *
+ */
 int find_valid_block(FILE *pcap, unsigned long filesize) {
   unsigned int bytes;
   unsigned long i;
@@ -1079,6 +1211,7 @@ int find_valid_block(FILE *pcap, unsigned long filesize) {
 
   /* bytewise processing of input file */
   for (i=ftell(pcap)-4; i<filesize; i++) {
+    /* set file pointer to loop position */
     fseek(pcap, i, SEEK_SET);
 
     /* read possbile block header */
@@ -1105,107 +1238,180 @@ int find_valid_block(FILE *pcap, unsigned long filesize) {
     }
   }
 
+  /* finished loop without success -> no more blocks inside file */
   return(-1);
 }
 
+/*
+ * Function:  write_shb
+ * --------------------
+ * creates a raw section header block (SHB) and writes it into output file
+ * (there will be no information inside except that it has been added by pcapfix)
+ *
+ * pcap_fix:  file pointer to output file
+ *
+ * returns:  0   success (new shb has been written to output file)
+ *
+ */
 int write_shb(FILE *pcap_fix) {
-  struct block_header bh;
-  struct section_header_block shb;
-  struct option_header oh;
+  struct block_header bh;           /* block header */
+  struct section_header_block shb;  /* section header block */
+  struct option_header oh;          /* options header */
 
-  unsigned int size;
-  unsigned int padding;
-  unsigned char *data;
+  unsigned int size = 0;            /* size of whole block */
+  unsigned int padding;             /* padding of data */
+  unsigned char *data;              /* data buffer */
 
+  /* this comment will be added to options to indicate that block has been arbitrary added
+   * we pad string with max of 4 zero bytes to ahjust memory alignment */
   char comment[] = "Added by pcapfix.\x00\x00\x00\x00";
 
+  /* set block type to section header block */
   bh.block_type = TYPE_SHB;
 
-  size = sizeof(struct block_header);
+  /* increase total size by block header size */
+  size += sizeof(struct block_header);
 
-  shb.byte_order_magic = BYTE_ORDER_MAGIC;
-  shb.major_version = 1;
-  shb.minor_version = 0;
+  /* fill section header block with valid values */
+  shb.byte_order_magic = BYTE_ORDER_MAGIC;    /* we use a non-swapped BYTE_ORDER */
+  shb.major_version = 1;                      /* major pcapng version is 1 */
+  shb.minor_version = 0;                      /* minor pcapng version is 0 */
 
+  /* increase total size by section header block size */
   size += sizeof(struct section_header_block);
 
-  oh.option_code = 0x01; /* comment */
-  oh.option_length = strlen(comment);
+  /* prepare options header */
+  oh.option_code = 0x01;                /* this is a comment option */
+  oh.option_length = strlen(comment);   /* size equals the definied comment */
 
+  /* increase total size by options header size */
   size += sizeof(struct option_header);
 
+  /* calculate padding for this options data */
   padding = oh.option_length;
   if (oh.option_length % 4 != 0) padding += (4 - oh.option_length % 4);
 
+  /* increase total size by options data size (including padding) */
   size += padding;
 
-  size += 4;  /* end of options */
+  /* increase size by 4 (end of options) */
+  size += 4;
 
-  size += 4;  /* second block_length field */
+  /* increase size by 4 (second block_length field) */
+  size += 4;
 
+  /* set final size into block header field */
   bh.total_length = size;
 
+  /* reserve memory for whole section header block (including block header) */
   data = malloc(size);
+
+  /* store block header into buffer */
   memcpy(data, &bh, sizeof(bh));
+  /* store section header block (header) into buffer */
   memcpy(data+sizeof(bh), &shb, sizeof(shb));
+  /* store options header into buffer */
   memcpy(data+sizeof(bh)+sizeof(shb), &oh, sizeof(oh));
+  /* store option data into buffer */
   memcpy(data+sizeof(bh)+sizeof(shb)+sizeof(oh), comment, padding);
+  /* store end of options into buffer */
   memset(data+sizeof(bh)+sizeof(shb)+sizeof(oh)+padding, 0, 4);
+  /* store second block_length field into buffer */
   memcpy(data+sizeof(bh)+sizeof(shb)+sizeof(oh)+padding+4, &size, sizeof(size));
 
+  /* write whole buffer (new SHB) into output file */
   fwrite(data, size, 1, pcap_fix);
 
+  /* clean up memory */
+  free(data);
+
+  /* success */
   return(0);
 }
 
+/*
+ * Function:  write_idb
+ * --------------------
+ * creates a raw interface description block (IDB) and writes it into output file
+ * (there will be no information inside except that it has been added by pcapfix)
+ *
+ * pcap_fix:  file pointer to output file
+ *
+ * returns:  0   success (new shb has been written to output file)
+ *
+ */
 int write_idb(FILE *pcap_fix) {
-  struct block_header bh;
-  struct interface_description_block idb;
-  struct option_header oh;
+  struct block_header bh;                   /* block header */
+  struct interface_description_block idb;   /* interface description block */
+  struct option_header oh;                  /* options header */
 
-  unsigned int size;
-  unsigned int padding;
-  unsigned char *data;
+  unsigned int size = 0;            /* size of whole block */
+  unsigned int padding;             /* padding of data */
+  unsigned char *data;              /* data buffer */
 
+  /* this comment will be added to options to indicate that block has been arbitrary added
+   * we pad string with max of 4 zero bytes to ahjust memory alignment */
   char comment[] = "Added by pcapfix.\x00\x00\x00\x00";
 
+  /* set block type to interface description block */
   bh.block_type = TYPE_IDB;
 
-  size = sizeof(struct block_header);
+  /* increase total size by block header size */
+  size += sizeof(struct block_header);
 
-  idb.linktype = data_link_type;
+  /* fill interface description block with valid values */
+  idb.linktype = data_link_type;  /* link layter type as set by user (default == 1 (ETHERNET)) */
+  idb.reserved = 0;               /* reserved is always zero */
+  idb.snaplen = 65535;            /* we set snaplen to maximum */
 
-  idb.reserved = 0;
-
-  idb.snaplen = 65535;
-
+  /* increase total size by interface desciption block (header) */
   size += sizeof(struct interface_description_block);
 
-  oh.option_code = 0x01; /* comment */
-  oh.option_length = strlen(comment);
+  /* prepare options header */
+  oh.option_code = 0x01;                /* this is a comment option */
+  oh.option_length = strlen(comment);   /* size equals the definied comment */
 
+  /* increase total size by options header size */
   size += sizeof(struct option_header);
 
+  /* calculate padding for this options data */
   padding = oh.option_length;
   if (oh.option_length % 4 != 0) padding += (4 - oh.option_length % 4);
 
+  /* increase total size by options data size (including padding) */
   size += padding;
 
-  size += 4;  /* end of options */
+  /* increase size by 4 (end of options) */
+  size += 4;
 
-  size += 4;  /* second block_length field */
+  /* increase size by 4 (second block_length field) */
+  size += 4;
 
+  /* set final size into block header field */
   bh.total_length = size;
 
+  /* reserve memory for whole section header block (including block header) */
   data = malloc(size);
+
+  /* store block header into buffer */
   memcpy(data, &bh, sizeof(bh));
+  /* store interface description block (header) into buffer */
   memcpy(data+sizeof(bh), &idb, sizeof(idb));
+  /* store options header into buffer */
   memcpy(data+sizeof(bh)+sizeof(idb), &oh, sizeof(oh));
+  /* store option data into buffer */
   memcpy(data+sizeof(bh)+sizeof(idb)+sizeof(oh), comment, padding);
+  /* store end of options into buffer */
   memset(data+sizeof(bh)+sizeof(idb)+sizeof(oh)+padding, 0, 4);
+  /* store second block_length field into buffer */
   memcpy(data+sizeof(bh)+sizeof(idb)+sizeof(oh)+padding+4, &size, sizeof(size));
 
+  /* write whole buffer (new SHB) into output file */
   fwrite(data, size, 1, pcap_fix);
 
+  /* clean up memory */
+  free(data);
+
+  /* success */
   return(0);
 }

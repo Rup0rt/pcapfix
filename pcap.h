@@ -67,8 +67,11 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
  * pcap:      file pointer to input file
  * pcap_fix:  file pointer to output file
  *
- * returns: 0   success (file was corrupted and has been successfully repaired)
- *          !=0 otherwise
+ * returns: >0   success (number of corruptions fixed)
+ *           0   success (nothing to fix)
+ *          -1   error (not a pcap file)
+ *          -2   error (unable to repair)
+ *          -3   error (EOF reached while reading input file)
  *
  */
 int fix_pcap(FILE *pcap, FILE *pcap_fix);
