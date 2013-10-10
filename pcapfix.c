@@ -4,24 +4,28 @@
  * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 06.10.2013
+ * Last Modified: 10.10.2013
  *
- * Command line: pcapfix [-v] [-d] [-t link_type] <pcap_file>
+ * Command line: pcapfix [-d] [-n] [-t link_type] [-v] <pcap(ng)_file>
  *
  * Description:
  *
- * pcapfix is a repair tool for corrupted pcap files. It checks for an intact
- * pcap global header and repairs it if there are any corrupted bytes. If one
- * is not present, one is created and added to the beginning of the file. It
- * then tries to find pcap packet headers, and checks and repairs them.
+ * pcapfix is a repair tool for corrupted pcap/pcapng files. Depending on the
+ * format, it ...
  *
- * Algorithm:
+ * (pcap format) ...checks for an intact pcap global header and repairs it if
+ * there are any corrupted bytes (pcap format). If one is not present, one is
+ * created and added to the beginning of the file. It then tries to find pcap
+ * packet headers, and checks and repairs them. pcapfix will first step through
+ * the packets top down until it recognizes a corrupted one by using plausibility
+ * checks. After that the tool will brute force further pcap packet headers by
+ * reading the file byte by byte. If another proper packet is found, pcapfix
+ * restores the data in between by adding a well-formed pcap packet header.
  *
- * pcapfix will first step through the packets top down until it recognizes a
- * corrupted one by using plausibility checks. After that the tool will brute
- * force further pcap packet headers by reading the file byte by byte. If another
- * proper packet is found, pcapfix restores the data in between by adding a
- * well-formed pcap packet header.
+ * (pcapng format) ...loops the block heades one by one checking for section
+ * header block and interface description block and creates one if missing. It
+ * progresses all blocks checking the options / records, skips invalid ones
+ * and aligns next header if there is any corruption.
  *
  ******************************************************************************/
 
@@ -38,7 +42,7 @@ int deep_scan = 0;				      /* deep scan option (default: no deep scan) */
 int verbose = 0;				        /* verbose output option (default: dont be verbose) */
 int swapped = 0;			          /* pcap file is swapped (big endian) */
 int data_link_type = 1;		      /* data link type (default: LINKTYPE_ETHERNET) */
-int pcapng = 0;
+int pcapng = 0;                 /* file format to assume */
 
 /* header placeholder */
 unsigned int header_magic;
@@ -57,7 +61,7 @@ void usage(char *progname) {
   printf("OPTIONS:");
   printf(  "\t-d     , --deep-scan          \tDeep scan (pcap only)\n");
   printf("\t\t-n     , --pcapng             \tforce pcapng format\n");
-  printf("\t\t-t <nr>, --data-link-type <nr>\tData link type (pcap only)\n");
+  printf("\t\t-t <nr>, --data-link-type <nr>\tData link type\n");
   printf("\t\t-v     , --verbose            \tVerbose output\n");
   printf("\n");
 }
@@ -272,7 +276,7 @@ int main(int argc, char *argv[]) {
   /* check for file type */
   switch (header_magic) {
     case SNOOP_MAGIC:
-      printf("[-] This is a SNOOP file, which is not supported yet.\n\n");
+      printf("[-] This is a SNOOP file, which is not supported.\n\n");
       fclose(pcap);
       fclose(pcap_fix);
       remove(filename_fix);
@@ -316,7 +320,7 @@ int main(int argc, char *argv[]) {
       return(0);
 
     case -1:
-      printf("[-] FAILED: This file does not seem to be a pcap file!\n\n");
+      printf("[-] FAILED: This file does not seem to be a pcap/pcapng file!\n\n");
 
       fclose(pcap);
       fclose(pcap_fix);

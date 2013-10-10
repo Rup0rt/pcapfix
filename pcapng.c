@@ -100,12 +100,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   unsigned long padding;                    /* calculation for padding bytes */
   unsigned long pos;                        /* current block position in input file */
   unsigned long filesize;                   /* size of input file */
-  signed long left;                         /* bytes left to proceed until current blocks end is reached */
   unsigned int count;
   unsigned int shb_num;
   unsigned int idb_num;
+  unsigned int step = 0;
   int fixes;
   int res;
+  long left;                                /* bytes left to proceed until current blocks end is reached */
 
   /* get file size of input file */
   fseek(pcap, 0, SEEK_END);
@@ -120,6 +121,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   /* loop every block inside pcapng file until end of file is reached */
   while (pos < filesize) {
+
+    if ((verbose == 0) && (100*pos/filesize > step)) {
+      print_progress(pos, filesize);
+      step++;
+    }
+
     /* read the header of the current block */
     bytes = fread(&bh, sizeof(bh), 1, pcap);
     if (bytes != 1) return -3;
@@ -1058,6 +1065,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   }
 
+  if (shb_num == 0) return(-1);
+
   /* everything successfull - return number of fixes */
   return(fixes);
 }
@@ -1164,8 +1173,7 @@ int write_idb(FILE *pcap_fix) {
 
   size = sizeof(struct block_header);
 
-  /* TODO: take from parameters */
-  idb.linktype = 1;
+  idb.linktype = data_link_type;
 
   idb.reserved = 0;
 

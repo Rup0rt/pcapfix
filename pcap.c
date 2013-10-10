@@ -134,6 +134,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   unsigned long nextpos = 0;			        /* possible position of next packets header */
   unsigned long bytes;				            /* read/written bytes counter (unused yet) */
   unsigned int count;				              /* packet counter */
+  unsigned int step = 0;
   unsigned long filesize;
   unsigned int last_correct_ts_sec = 0;		/* timestamp of the last proper packet found (seconds) */
   unsigned int last_correct_ts_usec = 0;	/* timestamp of the last proper packet found (microseconds or nanoseconds) */
@@ -279,7 +280,10 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   for (count=1; pos < filesize; count++) {
 
     /* we only want the progress bar to be printed in non-verbose mode */
-    if (verbose == 0) print_progress(pos, filesize);
+    if ((verbose == 0) && (100*pos/filesize > step)) {
+      print_progress(pos, filesize);
+      step++;
+    }
 
     /* read the next packet header */
     bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
