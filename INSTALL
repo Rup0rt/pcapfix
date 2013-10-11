@@ -15,6 +15,10 @@ Basic Installation
 	make install
 
 
+The tool will be installed in /usr by default. To change this, edit
+the $PREFIX variable in Makefile.
+
+
 Uninstall
 =========
 

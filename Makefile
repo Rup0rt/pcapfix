@@ -27,4 +27,5 @@ uninstall:
 	rm -f $(DESTDIR)/$(MANDIR)/man1/pcapfix.1
 
 clean:
-	rm -f *.o pcapfix
+	rm -f *.o
+	rm -f pcapfix

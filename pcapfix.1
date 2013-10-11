@@ -1,29 +1,36 @@
-.TH PCAPFIX 1 "16 JUN 2013"
+.TH PCAPFIX 1 "12 OCT 2013"
 
 .SH "NAME"
 pcapfix \- repair pcap files
 
 .SH "SYNOPSIS"
-\fBpcapfix\fP [\-v] [\-d] [\-t DATA_LINK_TYPE] filename
+\fBpcapfix\fP [\-d] [\-n] [\-t DATA_LINK_TYPE] [\-v] filename
 
 .SH "DESCRIPTION"
-Pcapfix is a tool to repair your damaged or corrupted pcap files.
+Pcapfix is a tool to repair your damaged or corrupted pcap and pcapng files. It is written in C and released under the GNU General Public License.
 
-To fix your files the tool first checks for an intact pcap global header and repairs it if there are some corrupted bytes. It there seems to be no global header at all, pcapfix adds a self-created one at the beginning of the file. In a second step the tool tries to find pcap packet headers inside the file, below the global header. It checks if the values are correct (or seem to be correct) and tries to repair a packet if there is something wrong. 
+To fix your pcap files the tool first checks for an intact pcap global header and repairs it if there are some corrupted bytes. It there seems to be no global header at all, pcapfix adds a self-created one at the beginning of the file. In a second step the tool tries to find pcap packet headers inside the file, below the global header. It checks if the values are correct (or seem to be correct) and tries to repair a packet if there is something wrong.
+
+To fix your pcapng files the tool loops through all packet headers that can be found in the file. It checks for mandatory Section Header and Interface Description Block and creates them if missing. Pcapfix checks for correct block sizes and valid option fields. If something is wrong, invalid fields are repaired (if possible) or skipped and adjusted to finally get a proper pcapng file.
 
 .SH "OPTIONS"
 .TP 5
+\-d, \-\-deep\-scan
+Force deep scan (default = 0)
+.br
+This option will force pcapfix to scan for any packet inside the whole file (instead of the first 65535 bytes only).
+.TP
+\-n, \-\-pcapng
+Force File Format to PCAPNG (default = 0)
+.br
+This option will force pcapfix to repair the input file as it were in pcapng format (useful for destroyed file headers).
+.TP
 \-v, \-\-verbose
 Enable verbose output (default = 0)
 .br
 You can use multiple \-v options to increase verbosity.
 .br
 An verbosity of 2 will result in very much output data during package search.
-.TP
-\-d, \-\-deep\-scan
-Force deep scan (default = 0)
-.br
-This option will force pcapfix to scan for any packet inside the whole file (instead of the first 65535 bytes only).
 .TP
 \-t, \-\-data\-link\-type <nr>
 Data Link Type (default = 1)
@@ -37,17 +44,27 @@ pcapfix \-v damaged_file.pcap
 .TP
 Repair the file wlan_traffic.pcap and force the data link type to be 119 (PRISM HEADER).
 pcapfix \-t 119 wlan_traffic.pcap
+.TP
+Repair the file damaged.pcapng which file header is corrupted and force its format to be pcapng.
+pcapfix \-n damaged.pcapng
 
 .SH "NOTES"
 .TP 5
+\fIDeep scan\fP
+
+In classic pcap files, pcapfix will only scan the first 65536 bytes (maximum packet length) for a proper first packet. If you want to force packet detection even above this limit (e.g. because your file has been heavily destroyed) you can use the deep scan option (\-d).
+
+This option is not necessary for pcapng files because the whole file is arranged in blocks that are 'unlimited' by default. In result pcapfix will always scan the whole pcapng file for further blocks.
+
+.TP
+\fIPCAPNG Format\fP
+
+Pcapfix will try to identify the file format to repair (pcap / pcapng) before doing any further checks. If the header itself is corrupted, it will assume the format to be classic pcap. To change this behaviour you can force the tool to do a pcapng-repair by supplying \-n (\-\-pcapng) option.
+
+.TP
 \fIVerbosity\fP
 
 You can use multiple \-v options to increase verbosity. An verbosity of 2 will result in very much output data during package search.
-
-.TP
-\fIDeep scan\fP
-
-Pcapfix will only scan the first 65535 bytes (maximum packet length) for a proper first packet. If you want to force packet detection even above this limit (e.g. because your file has been heavily destroyed) you can use the deep scan option (\-d).
 
 .TP
 \fIASCII-mode transferred Files (FTP)\fP
@@ -200,15 +217,46 @@ NUMBER	LINK_TYPE
 245	LINKTYPE_NFC_LLCP
 
 .SH "DEVELOPMENT"
-This tool is still in development! Please send any further wishes, feature requests or problems in compiling and execution to ruport@f00l.de. You may send me pcap files that could ne be repaired too in order to improve pcapfix!
+This tool is still under development! Please send any further wishes, feature requests or problems in compiling and execution to ruport@f00l.de. Additionally You may send me pcap/pcapng files that could not be repaired too in order to improve pcapfix and get your file repaired.
 
 For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 
 .SH "MESSAGES AND EXIT CODES"
-pcapfix will always exit with return code 0
+ 1	, file was corrupted and has been repaired
+.br
+ 0	, file is proper; nothing to repair
+.br
+-1	, invalid options / parameters given
+.br
+-2	, cannot open input file for reading
+.br
+-3	, cannot open output file for writing
+.br
+-4	, input file is empty
+.br
+-5	, input file is too small
+.br
+-6	, file type not supported
+.br
+-11	, not a pcap/pcapng file
+.br
+-12	, unable to repair the file
+.br
+-13	, EOF while reading input file
+.br
+-255	, unknown error
 
 .SH "HISTORY"
 .TP 5
+1.0.0 - 12.10.2013
+* added pcapng support
+.br
+* added nanoseconds support (Issue #1)
+.br
+* improved console output
+.br
+* minor bugs fixed
+.TP
 0.7.3 - 16.06.2013
 * added snoop file detection
 .br

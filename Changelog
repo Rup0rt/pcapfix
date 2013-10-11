@@ -1,9 +1,12 @@
 pcapfix Changelog
 *****************
 
-0.7.4rc1 - 09.09.2013
+1.0.0 - 12.10.2013
 ------------------
+* added pcapng support
 * added nanoseconds support (Issue #1)
+* improved console output
+* minor bugs fixed
 
 0.7.3 - 16.06.2013
 ------------------

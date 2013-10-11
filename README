@@ -1,20 +1,27 @@
-pcapfix v0.7.3 README
+pcapfix v1.0.0 README
 *********************
 
-Pcapfix is a tool to repair your damaged or corrupted pcap files. It is
-written in C and released under the GNU General Public License.
+Pcapfix is a tool to repair your damaged or corrupted pcap and pcapng files.
+It is written in C and released under the GNU General Public License.
 
-To fix your files the tool first checks for an intact pcap global header
-and repairs it if there are some corrupted bytes. It there seems to be
-no global header at all, pcapfix adds a self-created one at the beginning
-of the file. In a second step the tool tries to find pcap packet headers
-inside the file, below the global header. It checks if the values are
-correct (or seem to be correct) and tries to repair a packet if there is
-something wrong. 
+To fix your pcap files the tool first checks for an intact pcap global header
+and repairs it if there are some corrupted bytes. It there seems to be no
+global header at all, pcapfix adds a self-created one at the beginning of the
+file. In a second step the tool tries to find pcap packet headers inside the
+file, below the global header. It checks if the values are correct (or seem
+to be correct) and tries to repair a packet if there is something wrong. 
 
-This tool is still in development! Please send any further wishes, feature
-requests or problems in compiling and execution to ruport@f00l.de. You may
-send me pcap files that could ne be repaired too in order to improve pcapfix!
+To fix your pcapng files the tool loops through all packet headers that can
+be found in the file. It checks for mandatory Section Header and Interface
+Description Block and creates them if missing. Pcapfix checks for correct
+block sizes and valid option fields. If something is wrong, invalid fields
+are repaired (if possible) or skipped and adjusted to finally get a proper
+pcapng file.
+
+This tool is still under development! Please send any further wishes, feature
+requests or problems in compiling and execution to ruport@f00l.de. Additionally
+You may send me pcap/pcapng files that could not be repaired too in order to
+improve pcapfix and get your file repaired.
 
 For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 
@@ -22,9 +29,32 @@ USAGE
 =====
 
 ./pcapfix [OPTIONS] filename
-OPTIONS:        -t <nr>	, --data-link-type <nr>		Data Link Type (default = 1)
-		-d	, --deep-scan 	  		Deep Scan (default = 0)
-		-v	, --verbose 	  		Verbose output (default = 0)
+OPTIONS:        -d      , --deep-scan 	  		Deep Scan (default = 0) (pcap only!)
+                -n      , --pcapng 	  		Force File Format to PCAPNG
+                -t <nr> , --data-link-type <nr>		Data Link Type (default = 1)
+                -v      , --verbose 	  		Verbose output (default = 0)
+
+
+Deep Scan Option
+................
+
+In classic pcap files, pcapfix will only scan the first 65536 bytes (maximum
+packet length) for a proper first packet. If you want to force packet detection
+even above this limit (e.g. because your file has been heavily destroyed) you
+can use the deep scan option (-d).
+
+This option is not necessary for pcapng files because the whole file is arranged
+in blocks that are 'unlimited' by default. In result pcapfix will always scan
+the whole pcapng file for further blocks.
+
+
+PCAPNG Format
+.............
+
+Pcapfix will try to identify the file format to repair (pcap / pcapng) before
+doing any further checks. If the header itself is corrupted, it will assume the
+format to be classic pcap. To change this behaviour you can force the tool to
+do a pcapng-repair by supplying -n (--pcapng) option.
 
 
 Verbosity
@@ -34,30 +64,23 @@ You can use multiple -v options to increase verbosity.
 An verbosity of 2 will result in very much output data during package search.
 
 
-Deep Scan Option
-................
-
-Pcapfix will only scan the first 65535 bytes (maximum packet length) for a proper
-first packet. If you want to force packet detection even above this limit (e.g.
-because your file has been heavily destroyed) you can use the deep scan option (-d).
-
-
 ASCII-mode transfered Files (FTP)
 .................................
 
-Pcapfix is able to repair pcap files that have been  transfered in ascii-mode via
-FTP. In those files a proper pcap structure will be created only to make them
-readable by wireshark etc. The data inside the packets (and some pcap headers)
-might still be corrupted. To repair those packets a deeper look inside the
-packet structure (e.g. checksum) will be necessary.
+Pcapfix is able to repair classic pcap files that have been transfered in
+ascii-mode via FTP. In those files a proper pcap structure will be created
+only to make them readable by wireshark etc. The data inside the packets
+(and some pcap headers) might still be corrupted. To repair those packets
+a deeper look inside the packet structure (e.g. checksum) will be necessary.
 
 
 Data Link Types
 ...............
 
 You can make pcapfix change / select your data link type by supplying -t option.
-Although you may select a data link type number between 0 and 255, only the following types are assigned:
-If the data link type field is corrupt, pcapfix will selct LINKTYPE_ETHERNET by default.
+Although you may select a data link type number between 0 and 255, only the
+following types are assigned: If the data link type field is corrupt, pcapfix
+will select LINKTYPE_ETHERNET by default.
 
 See http://www.tcpdump.org/linktypes.html for futher information.
 
