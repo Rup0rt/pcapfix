@@ -54,6 +54,7 @@ int find_valid_block(FILE *pcap, unsigned long filesize);
  * pcap_fix:  file pointer to output file
  *
  * returns:  0   success (new shb has been written to output file)
+ *          -1   error (cannot write to output file)
  *
  */
 int write_shb(FILE *pcap_fix);
@@ -67,6 +68,7 @@ int write_shb(FILE *pcap_fix);
  * pcap_fix:  file pointer to output file
  *
  * returns:  0   success (new shb has been written to output file)
+ *          -1   error (cannot write to output file)
  *
  */
 int write_idb(FILE *pcap_fix);

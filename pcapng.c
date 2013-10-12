@@ -1123,7 +1123,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* write repaired block into output file */
       if (verbose >= 2) printf("[*] Writing block to file (%u bytes).\n", block_pos);
-      fwrite(new_block, block_pos, 1, pcap_fix);
+      bytes = fwrite(new_block, block_pos, 1, pcap_fix);
       free(new_block);
 
       /* increate SHB / IDB counters */
@@ -1251,6 +1251,7 @@ int find_valid_block(FILE *pcap, unsigned long filesize) {
  * pcap_fix:  file pointer to output file
  *
  * returns:  0   success (new shb has been written to output file)
+ *          -1   error (cannot write to output file)
  *
  */
 int write_shb(FILE *pcap_fix) {
@@ -1258,6 +1259,7 @@ int write_shb(FILE *pcap_fix) {
   struct section_header_block shb;  /* section header block */
   struct option_header oh;          /* options header */
 
+  unsigned long bytes;              /* written bytes/blocks counter */
   unsigned int size = 0;            /* size of whole block */
   unsigned int padding;             /* padding of data */
   unsigned char *data;              /* data buffer */
@@ -1320,7 +1322,8 @@ int write_shb(FILE *pcap_fix) {
   memcpy(data+sizeof(bh)+sizeof(shb)+sizeof(oh)+padding+4, &size, sizeof(size));
 
   /* write whole buffer (new SHB) into output file */
-  fwrite(data, size, 1, pcap_fix);
+  bytes = fwrite(data, size, 1, pcap_fix);
+  if (bytes != 1) return(-1);
 
   /* clean up memory */
   free(data);
@@ -1338,6 +1341,7 @@ int write_shb(FILE *pcap_fix) {
  * pcap_fix:  file pointer to output file
  *
  * returns:  0   success (new shb has been written to output file)
+ *          -1   error (cannot write to output file)
  *
  */
 int write_idb(FILE *pcap_fix) {
@@ -1345,6 +1349,7 @@ int write_idb(FILE *pcap_fix) {
   struct interface_description_block idb;   /* interface description block */
   struct option_header oh;                  /* options header */
 
+  unsigned long bytes;              /* written bytes/blocks counter */
   unsigned int size = 0;            /* size of whole block */
   unsigned int padding;             /* padding of data */
   unsigned char *data;              /* data buffer */
@@ -1407,7 +1412,8 @@ int write_idb(FILE *pcap_fix) {
   memcpy(data+sizeof(bh)+sizeof(idb)+sizeof(oh)+padding+4, &size, sizeof(size));
 
   /* write whole buffer (new SHB) into output file */
-  fwrite(data, size, 1, pcap_fix);
+  bytes = fwrite(data, size, 1, pcap_fix);
+  if (bytes != 1) return(-1);
 
   /* clean up memory */
   free(data);
