@@ -978,9 +978,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         left -= sizeof(epb);
 
         /* check for the mandatory IDB that MUST identify every packets interface_id */
-        while (pb.interface_id >= idb_num) {
+        while (epb.interface_id >= idb_num) {
           /* no IDB identifying this packet, we need to create one - until the ID is reached */
-          printf("[-] Missing IDB for Interface #%u ==> CREATING (#%u).\n", pb.interface_id, idb_num);
+          printf("[-] Missing IDB for Interface #%u ==> CREATING (#%u).\n", epb.interface_id, idb_num);
           write_idb(pcap_fix);
 
           /* increase counters */
