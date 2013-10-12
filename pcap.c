@@ -586,7 +586,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
       printf("[!] The pcap structure of those files can be repaired, but the data inside might still be corrupted!\n");
     }
 
-    return(corrupted);
+    return(hdr_integ+corrupted);
 
   }
 
