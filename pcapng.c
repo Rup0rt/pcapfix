@@ -882,9 +882,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             case 0x03:
               if (verbose >= 2) printf("[+] OPTION: Capture End Time... (%u bytes)\n", oh.option_length);
               break;
-            /* Packets recieved */
+            /* Packets received */
             case 0x04:
-              if (verbose >= 2) printf("[+] OPTION: Packets recieved... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Packets received... (%u bytes)\n", oh.option_length);
               break;
             /* Packets dropped */
             case 0x05:
