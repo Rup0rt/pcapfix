@@ -33,16 +33,16 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.0.0"			    /* pcapfix version */
+#define VERSION "1.0.0"			      /* pcapfix version */
 
-#define SNOOP_MAGIC 0x6f6f6e73	/* snoop packet magic (first 4 bytes) */
+#define SNOOP_MAGIC 0x6f6f6e73	  /* snoop packet magic (first 4 bytes) */
 
 /* configuration variables */
-int deep_scan = 0;				      /* deep scan option (default: no deep scan) */
-int verbose = 0;				        /* verbose output option (default: dont be verbose) */
-int swapped = 0;			          /* pcap file is swapped (big endian) */
-int data_link_type = 1;		      /* data link type (default: LINKTYPE_ETHERNET) */
-int pcapng = 0;                 /* file format to assume */
+int deep_scan = 0;		   /* deep scan option (default: no deep scan) */
+int verbose = 0;				 /* verbose output option (default: dont be verbose) */
+int swapped = 0;			   /* pcap file is swapped (big endian) */
+int data_link_type = -1; /* data link type (default: LINKTYPE_ETHERNET) */
+int pcapng = 0;          /* file format to assume */
 
 /* header placeholder */
 unsigned int header_magic;

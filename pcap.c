@@ -240,7 +240,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   }
 
   /* does the user provides a self-supplied data link type? if yes... change global header */
-  if (data_link_type != 1) {
+  if (data_link_type != -1) {
     printf("[+] Changing data link type to %d.\n", data_link_type);
     global_hdr.network = conint(data_link_type);
   }
@@ -255,7 +255,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
      * header the first packet might begin there */
     fseek(pcap, 0, SEEK_SET);
   } else { /* there have been corrupted fields (less than five) --> header is corrupted */
-    printf("[-] The global pcap header seems to corrupt! ==> CORRECTED\n");
+    printf("[-] The global pcap header seems to be corrupt! ==> CORRECTED\n");
   }
 
   /* write the (maybe changed) global header to output file */

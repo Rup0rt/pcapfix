@@ -1365,9 +1365,19 @@ int write_idb(FILE *pcap_fix) {
   size += sizeof(struct block_header);
 
   /* fill interface description block with valid values */
-  idb.linktype = data_link_type;  /* link layter type as set by user (default == 1 (ETHERNET)) */
-  idb.reserved = 0;               /* reserved is always zero */
-  idb.snaplen = 65535;            /* we set snaplen to maximum */
+
+  /* data link type */
+  if (data_link_type != -1) {
+    idb.linktype = data_link_type;  /* link layter type as set by user */
+  } else {
+    idb.linktype = 1;               /* link layter type to default (1 == ETHERNET) */
+  }
+
+  /* reserved is always zero */
+  idb.reserved = 0;
+
+  /* we set snaplen to maximum */
+  idb.snaplen = 65535;
 
   /* increase total size by interface desciption block (header) */
   size += sizeof(struct interface_description_block);
