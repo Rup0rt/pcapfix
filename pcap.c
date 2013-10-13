@@ -221,7 +221,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   }
 
   /* check for max packet length */
-  if (conint(global_hdr.snaplen) <= 65535) {	/* typically 65535 (no support for huge packets yet) */
+  if ((conint(global_hdr.snaplen) > 0) && (conint(global_hdr.snaplen) <= 65535)) {	/* typically 65535 (no support for huge packets yet) */
     if (verbose) printf("[+] Max packet length: %u\n", conint(global_hdr.snaplen));
   } else {
     hdr_integ++;
