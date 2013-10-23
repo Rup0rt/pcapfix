@@ -135,7 +135,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   unsigned long bytes;				            /* read/written bytes counter (unused yet) */
   unsigned long filesize;                 /* filesize of input file in bytes */
   unsigned int count;				              /* packet counter */
-  unsigned int step = 0;                  /* step counter for progress bar */
+  unsigned int step = 1;                  /* step counter for progress bar */
   unsigned int last_correct_ts_sec = 0;		/* timestamp of the last proper packet found (seconds) */
   unsigned int last_correct_ts_usec = 0;	/* timestamp of the last proper packet found (microseconds or nanoseconds) */
   unsigned short hdr_integ;			          /* integrity counter of global header */
@@ -283,7 +283,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   for (count=1; pos < filesize; count++) {
 
     /* we only want the progress bar to be printed in non-verbose mode */
-    if ((verbose == 0) && (100*pos/filesize > step)) {
+    if ((verbose == 0) && (5*(float)pos/(float)filesize > step)) {
       print_progress(pos, filesize);
       step++;
     }
@@ -542,6 +542,8 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
     pos = ftell(pcap);
 
   }
+
+  if (verbose == 0) { print_progress(pos, filesize); }
 
   /* did we reach the end of pcap file? */
   if (pos != filesize) { /* no ==> data missing == FAILED */

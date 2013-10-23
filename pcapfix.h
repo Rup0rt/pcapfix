@@ -53,7 +53,7 @@ unsigned int conint(unsigned int var);
 /*
  * Function:  print_progress
  * -------------------------
- * prints the progess bar when using pcapfix in non-verbose mode
+ * prints the progess line when using pcapfix in non-verbose mode
  *
  * pos:       the current filepointer position
  * filesize:  the size of the input pcap file in bytes

@@ -4,7 +4,7 @@
  * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 10.10.2013
+ * Last Modified: 23.10.2013
  *
  * Command line: pcapfix [-d] [-n] [-t link_type] [-v] <pcap(ng)_file>
  *
@@ -33,7 +33,7 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.0.0"			      /* pcapfix version */
+#define VERSION "1.0.1"			      /* pcapfix version */
 
 #define SNOOP_MAGIC 0x6f6f6e73	  /* snoop packet magic (first 4 bytes) */
 
@@ -105,29 +105,20 @@ unsigned int conint(unsigned int var) {
 /*
  * Function:  print_progress
  * -------------------------
- * prints the progess bar when using pcapfix in non-verbose mode
+ * prints the progess line when using pcapfix in non-verbose mode
  *
  * pos:       the current filepointer position
  * filesize:  the size of the input pcap file in bytes
  *
  */
 void print_progress(unsigned long pos, unsigned long filesize) {
-  int i;		        /* loop counter */
   float percentage;	/* pencentage variable */
 
   /* calculate the current percentage of file analyzing progress */
   percentage = (float)pos/(float)filesize;
 
   /* print the first part of the line including percentage output */
-  printf("[*] Progress: %5.2f %% [", percentage*100);
-
-  /* output progress bar (width = 50 chars) */
-  for (i=1; i<=percentage*50 ;i++) printf("=");	/* calculate and output "="-signs */
-  printf(">");					/* output arrow peak */
-  for (i=percentage*50; i<50; i++) printf(" ");	/* calculate and output spaces */
-
-  /* clear the line and carriage return */
-  printf("]\n\033[F\033[J");
+  printf("[*] Progress: %6.02f %%\n", percentage*100);
 }
 
 /*

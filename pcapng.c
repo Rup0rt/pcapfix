@@ -119,13 +119,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   fixes = 0;          /* no corruptions fixed yet */
   shb_num = 0;        /* no SHBs progressed yet */
   idb_num = 0;        /* no IDBs progressed yet */
-  step = 0;           /* progress bar starts at 0 steps */
+  step = 1;           /* progress bar starts at 0 steps */
 
   /* loop every block inside pcapng file until end of file is reached */
   while (pos < filesize) {
 
     /* print out progress bar if in non-verbose mode */
-    if ((verbose == 0) && (100*pos/filesize > step)) {
+    if ((verbose == 0) && (5*(float)pos/(float)filesize > step)) {
       print_progress(pos, filesize);
       step++;
     }
