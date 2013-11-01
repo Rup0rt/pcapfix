@@ -300,7 +300,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
       fseek(pcap, pos+16, SEEK_SET);
 
       /* try to read the packet body AND check if there are still at least 16 bytes left for the next pcap packet header */
-      if ((fread(&buffer, conint(packet_hdr.incl_len), 1, pcap) == 0) || ((filesize-(pos+16+res+conint(packet_hdr.incl_len)) > 0) && (filesize-(pos+16+res+conint(packet_hdr.incl_len)) < 16))) {
+      if ((fread(&buffer, conint(packet_hdr.incl_len), 1, pcap) == 0) || ((filesize-(pos+16+conint(packet_hdr.incl_len)) > 0) && (filesize-(pos+16+conint(packet_hdr.incl_len)) < 16))) {
         /* fread returned an error (EOL while read the body) or the file is not large enough for the next pcap packet header (16bytes) */
         /* thou the last packet has been cut of */
 
@@ -314,7 +314,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
         /* print out information */
         printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
-	corrupted++;
+        corrupted++;
       }
 
       /* OVERLAPPING DETECTION */

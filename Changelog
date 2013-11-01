@@ -5,6 +5,7 @@ pcapfix Changelog
 ------------------
 * changed progress bar to normal output line
 * fixed error when repairing swapped pcap files
+* fixed last packet mismatch error
 
 1.0.0 - 12.10.2013
 ------------------
