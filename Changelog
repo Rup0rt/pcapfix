@@ -4,6 +4,7 @@ pcapfix Changelog
 1.0.1 - 01.11.2013
 ------------------
 * changed progress bar to normal output line
+* added block type of zero to unknown blocks (pcapng)
 * fixed error when repairing swapped pcap files
 * fixed last packet mismatch error
 

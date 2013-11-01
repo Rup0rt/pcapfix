@@ -1096,7 +1096,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     } /* end of switch - block header */
 
     /* check for invalid block header type */
-    if (bh.block_type != TYPE_SHB && bh.block_type > TYPE_EPB) {
+    if ((bh.block_type != TYPE_SHB && bh.block_type > TYPE_EPB) || bh.block_type == 0x00000000) {
       /* this block type is ńot know */
 
       printf("[-] Unknown block type!: 0x%08x ==> SKIPPING.\n", bh.block_type);
@@ -1114,6 +1114,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* check wether the real size matches the size formerly specified in block header */
       if (block_pos != bh.total_length) {
+
         /* specified size in block header does NOT match the real block size (maybe due to fixed corruptions) */
         if (verbose) printf("[*] Block size adjusted (%u --> %u).\n", bh.total_length, block_pos);
 
