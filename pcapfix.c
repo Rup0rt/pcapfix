@@ -4,7 +4,7 @@
  * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
  * License: GPLv3
  *
- * Last Modified: 23.10.2013
+ * Last Modified: 01.11.2013
  *
  * Command line: pcapfix [-d] [-n] [-t link_type] [-v] <pcap(ng)_file>
  *

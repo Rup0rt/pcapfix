@@ -1,9 +1,10 @@
 pcapfix Changelog
 *****************
 
-1.0.1 - 23.10.2013
+1.0.1 - 01.11.2013
 ------------------
 * changed progress bar to normal output line
+* fixed error when repairing swapped pcap files
 
 1.0.0 - 12.10.2013
 ------------------

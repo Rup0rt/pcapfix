@@ -500,7 +500,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
             /* read the packets body (size based on the just found next packets position) */
             fseek(pcap, pos+16, SEEK_SET);
-            bytes = fread(&buffer, packet_hdr.incl_len, 1, pcap);
+            bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
             /* write repaired packet header and packet body */
             bytes = fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	/* write packet header to output file */
