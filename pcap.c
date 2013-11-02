@@ -254,6 +254,15 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
      * further packet search depends on this position and without a global
      * header the first packet might begin there */
     fseek(pcap, 0, SEEK_SET);
+
+    /* set important header values to defaults */
+    global_hdr.snaplen = conint(65535);
+
+    if (data_link_type != -1) {
+      global_hdr.network = conint(data_link_type);
+    } else {
+      global_hdr.network = conint(1);
+    }
   } else { /* there have been corrupted fields (less than five) --> header is corrupted */
     printf("[-] The global pcap header seems to be corrupt! ==> CORRECTED\n");
   }
