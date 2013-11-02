@@ -35,7 +35,8 @@
 
 #define VERSION "1.0.1"			      /* pcapfix version */
 
-#define SNOOP_MAGIC 0x6f6f6e73	  /* snoop packet magic (first 4 bytes) */
+#define SNOOP_MAGIC 0x6f6f6e73	  /* snoop file magic (first 4 bytes) */
+#define NETMON_MAGIC 0x55424d47   /* netmon file magic */
 
 /* configuration variables */
 int deep_scan = 0;		   /* deep scan option (default: no deep scan) */
@@ -266,6 +267,19 @@ int main(int argc, char *argv[]) {
 
   /* check for file type */
   switch (header_magic) {
+
+    /* netmon file format --> often used with pcapfix but NOT supported (yet) */
+    case NETMON_MAGIC:
+      printf("[-] This is a NetMon file, which is not supported.\n\n");
+
+      /* close input and output files */
+      fclose(pcap);
+      fclose(pcap_fix);
+
+      /* delete output file due to no changes failure */
+      remove(filename_fix);
+
+      return(-6);
 
     /* SNOOP file format --> often used with pcapfix but NOT supported (yet) */
     case SNOOP_MAGIC:

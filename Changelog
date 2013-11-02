@@ -6,6 +6,7 @@ pcapfix Changelog
 * changed progress bar to normal output line
 * added block type of zero to unknown blocks (pcapng)
 * added support for USB, SERIAL and BLUETOOTH link types
+* added detection of netmon file type
 * set data link type to ethernet on missing header (pcap)
 * fixed error when repairing swapped pcap files
 * fixed last packet mismatch error
