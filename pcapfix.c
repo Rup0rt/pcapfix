@@ -33,10 +33,11 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.0.1"			      /* pcapfix version */
+#define VERSION "1.0.1"			        /* pcapfix version */
 
-#define SNOOP_MAGIC 0x6f6f6e73	  /* snoop file magic (first 4 bytes) */
-#define NETMON_MAGIC 0x55424d47   /* netmon file magic */
+#define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
+#define NETMON_MAGIC 0x55424d47     /* netmon file magic */
+#define ETHERPEEK_MAGIC 0x7265767f  /* EtherPeek/AiroPeek/OmniPeek file magic */
 
 /* configuration variables */
 int deep_scan = 0;		   /* deep scan option (default: no deep scan) */
@@ -267,6 +268,19 @@ int main(int argc, char *argv[]) {
 
   /* check for file type */
   switch (header_magic) {
+
+    /* etherpeek file format --> often used with pcapfix but NOT supported (yet) */
+    case ETHERPEEK_MAGIC:
+      printf("[-] This is a EtherPeek/AiroPeek/OmniPeek file, which is not supported.\n\n");
+
+      /* close input and output files */
+      fclose(pcap);
+      fclose(pcap_fix);
+
+      /* delete output file due to no changes failure */
+      remove(filename_fix);
+
+      return(-6);
 
     /* netmon file format --> often used with pcapfix but NOT supported (yet) */
     case NETMON_MAGIC:

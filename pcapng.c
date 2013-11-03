@@ -992,6 +992,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (epb.caplen > left) {
           printf("[-] Enhanced packet data exceeds packet length (%u > %ld) ==> CORRECTED.\n", epb.caplen, left);
           epb.caplen = left;
+
+          fixes++;
         }
 
         /* copy enhanced packet block into repaired buffer */
@@ -1158,6 +1160,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* block header sizes do not match! */
 
       printf("[-] Block size mismatch (0x%08x != 0x%08x) ==> CORRECTED.\n", check, bh.total_length);
+      fixes++;
 
       /* we did not hit the end of block - need to search for next one */
 
