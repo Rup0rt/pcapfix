@@ -1,4 +1,4 @@
-.TH PCAPFIX 1 "12 OCT 2013"
+.TH PCAPFIX 1 "03 NOV 2013"
 
 .SH "NAME"
 pcapfix \- repair pcap and pcapng files
@@ -248,6 +248,17 @@ For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 
 .SH "HISTORY"
 .TP 5
+1.0.1 - 03.11.2013
+* added reparation block type id zero (pcapng)
+.br
+* added reparation of capture length inside EPB (pcapng)
+.br
+* set data link type to ethernet on missing header (pcap)
+.br
+* changed missing pcap header threshold             
+.br
+* fixed minor bugs
+.TP
 1.0.0 - 12.10.2013
 * added pcapng support
 .br
