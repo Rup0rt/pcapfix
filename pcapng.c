@@ -138,17 +138,17 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     if (bh.total_length > filesize-pos) {
       /* block size is larger than bytes in input file */
 
-      if (verbose) printf("[-] Block Length (%u) exceeds file size (%ld).\n", bh.total_length, filesize);
+      if (verbose >= 1) printf("[-] Block Length (%u) exceeds file size (%ld).\n", bh.total_length, filesize);
 
       /* search for next valid block */
-      if (verbose) printf("[*] Trying to align next block...\n");
+      if (verbose >= 1) printf("[*] Trying to align next block...\n");
       res = find_valid_block(pcap, filesize);
 
       /* block found? */
       if (res == 0) {
         /* another valid block has been found in the file */
 
-        if (verbose) printf("[+] GOT Next Block at Position %ld\n", ftell(pcap));
+        if (verbose >= 1) printf("[+] GOT Next Block at Position %ld\n", ftell(pcap));
 
         /* adjust total blocks length to match next block */
         bh.total_length = ftell(pcap)-pos;
@@ -156,14 +156,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       } else {
         /* there are no more blocks inside the file */
 
-        if (verbose) printf("[*] No more valid Blocks found inside file! (maybe it was the last one)\n");
+        if (verbose >= 1) printf("[*] No more valid Blocks found inside file! (maybe it was the last one)\n");
 
         /* adjust total blocks length to end of file */
         bh.total_length = filesize-pos;
 
       }
 
-      if (verbose) printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
+      if (verbose >= 1) printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
       else printf("[-] Invalid Block size => CORRECTED.\n");
 
       /* reset input file pointer behind block header */
@@ -188,7 +188,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Section Header Block */
       case TYPE_SHB:
-        if (verbose) printf("[*] FOUND: Section Header Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Section Header Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* read section header block into struct */
         bytes = fread(&shb, sizeof(shb), 1, pcap);
@@ -197,9 +197,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* check for pcap's magic bytes () */
         if (shb.byte_order_magic == BYTE_ORDER_MAGIC) {
-          if (verbose) printf("[+] Byte Order Magic: 0x%x\n", shb.byte_order_magic);
+          if (verbose >= 1) printf("[+] Byte Order Magic: 0x%x\n", shb.byte_order_magic);
         } else if (shb.byte_order_magic == htonl(BYTE_ORDER_MAGIC)) {
-          if (verbose) printf("[+] Byte Order Magic: 0x%x (SWAPPED)\n", shb.byte_order_magic);
+          if (verbose >= 1) printf("[+] Byte Order Magic: 0x%x (SWAPPED)\n", shb.byte_order_magic);
           swapped = 1;
         } else {
           printf("[-] Unknown Byte Order Magic: 0x%x ==> CORRECTED.\n", shb.byte_order_magic);
@@ -209,7 +209,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* check for major version number (2) */
         if (conshort(shb.major_version) == 1) {	/* current major version is 2 */
-          if (verbose) printf("[+] Major version number: %hu\n", conshort(shb.major_version));
+          if (verbose >= 1) printf("[+] Major version number: %hu\n", conshort(shb.major_version));
         } else {
           printf("[-] Major version number: %hu ==> CORRECTED.\n", conshort(shb.major_version));
           shb.major_version = conshort(1);
@@ -218,7 +218,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* check for minor version number */
         if (conshort(shb.minor_version) == 0) {	/* current minor version is 4 */
-          if (verbose) printf("[+] Minor version number: %hu\n", conshort(shb.minor_version));
+          if (verbose >= 1) printf("[+] Minor version number: %hu\n", conshort(shb.minor_version));
         } else {
           printf("[-] Minor version number: %hu ==> CORRECTED.\n", conshort(shb.minor_version));
           shb.minor_version = conshort(0);
@@ -227,10 +227,10 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* section length */
         if (shb.section_length == -1) {
-          if (verbose) printf("[*] Section length: %ld\n", shb.section_length);
+          if (verbose >= 1) printf("[*] Section length: %ld\n", shb.section_length);
 
         } else {
-          if (verbose) printf("[*] Section length: %ld ==> SETTING TO -1\n", shb.section_length);
+          if (verbose >= 1) printf("[*] Section length: %ld ==> SETTING TO -1\n", shb.section_length);
           shb.section_length = -1;
         }
 
@@ -281,13 +281,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             /* is this the first option we check? */
             if (count == 0) {
               /* there are NO options inside this block; skipping EOO option */
-              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
             /* there have been other options before this corruption, we need EOO option */
 
-            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
             /* adjust option header to end of options */
             oh.option_code = 0x00;
@@ -415,13 +415,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             /* is this the first option we check? */
             if (count == 0) {
               /* there are NO options inside this block; skipping EOO option */
-              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
             /* there have been other options before this corruption, we need EOO option */
 
-            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
             /* adjust option header to end of options */
             oh.option_code = 0x00;
@@ -515,7 +515,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose) printf("[*] FOUND: Interface Description Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Interface Description Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* read interface description block */
         bytes = fread(&idb, sizeof(idb), 1, pcap);	/* read first bytes of input file into struct */
@@ -609,13 +609,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             /* is this the first option we check? */
             if (count == 0) {
               /* there are NO options inside this block; skipping EOO option */
-              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
             /* there have been other options before this corruption, we need EOO option */
 
-            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
             /* adjust option header to end of options */
             oh.option_code = 0x00;
@@ -665,7 +665,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose) printf("[*] FOUND: Name Resolution Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Name Resolution Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* process records */
         count = 0;
@@ -702,13 +702,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             /* is this the first record we check? */
             if (count == 0) {
               /* there are NO records inside this block; skipping EOR record */
-              if (verbose) printf("[*] No Records inside -> no need for End of Records...\n");
+              if (verbose >= 1) printf("[*] No Records inside -> no need for End of Records...\n");
               break;
             }
 
             /* there have been other records before this corruption, we need EOR record */
 
-            if (verbose) printf("[*] %u Records inside -> Finishing with End of Records...\n", count);
+            if (verbose >= 1) printf("[*] %u Records inside -> Finishing with End of Records...\n", count);
 
             /* adjust option header to end of options */
             nrb.record_type = 0x00;
@@ -787,13 +787,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             /* is this the first option we check? */
             if (count == 0) {
               /* there are NO options inside this block; skipping EOO option */
-              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
             /* there have been other options before this corruption, we need EOO option */
 
-            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
             /* adjust option header to end of options */
             oh.option_code = 0x00;
@@ -844,7 +844,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose) printf("[*] FOUND: Interface Statistics Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Interface Statistics Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
 
         /* read interface statistics block */
         bytes = fread(&isb, sizeof(isb), 1, pcap);
@@ -914,13 +914,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             /* is this the first option we check? */
             if (count == 0) {
               /* there are NO options inside this block; skipping EOO option */
-              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
             /* there have been other options before this corruption, we need EOO option */
 
-            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
             /* adjust option header to end of options */
             oh.option_code = 0x00;
@@ -988,6 +988,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
+        /* check if packet capture size exceeds packet length */
+        if (epb.caplen > left) {
+          printf("[-] Enhanced packet data exceeds packet length (%u > %ld) ==> CORRECTED.\n", epb.caplen, left);
+          epb.caplen = left;
+        }
+
         /* copy enhanced packet block into repaired buffer */
         memcpy(new_block+block_pos, &epb, sizeof(epb));
         block_pos += sizeof(epb);
@@ -1051,13 +1057,13 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             /* is this the first option we check? */
             if (count == 0) {
               /* there are NO options inside this block; skipping EOO option */
-              if (verbose) printf("[*] No Options inside -> no need for End of Options...\n");
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
               break;
             }
 
             /* there have been other options before this corruption, we need EOO option */
 
-            if (verbose) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
 
             /* adjust option header to end of options */
             oh.option_code = 0x00;
@@ -1116,7 +1122,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       if (block_pos != bh.total_length) {
 
         /* specified size in block header does NOT match the real block size (maybe due to fixed corruptions) */
-        if (verbose) printf("[*] Block size adjusted (%u --> %u).\n", bh.total_length, block_pos);
+        if (verbose >= 1) printf("[*] Block size adjusted (%u --> %u).\n", bh.total_length, block_pos);
 
         /* increase corruption counter */
         fixes++;
@@ -1138,7 +1144,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       if (verbose >= 2) printf("[+] End of Block reached... byte counter is correct!\n");
     } else {
       /* we did not read until end of block - maybe due to option skipping */
-      if (verbose) printf("[-] Did not hit the end of the block! (%ld bytes left)\n", left);
+      if (verbose >= 1) printf("[-] Did not hit the end of the block! (%ld bytes left)\n", left);
     }
 
     /* check for correct block end (block size) */
@@ -1158,21 +1164,25 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* remeber current position to know how much bytes have been skipped */
       bytes = ftell(pcap);
 
-      /* search for next valid block */
-      if (verbose) printf("[*] Trying to align next block...\n");
-      res = find_valid_block(pcap, filesize);
+      if (bytes != filesize) {
 
-      /* output information about skipped bytes */
-      printf("[-] Found %ld bytes of unknown data ==> SKIPPING.\n", ftell(pcap)-bytes);
+        /* search for next valid block */
+        if (verbose >= 1) printf("[*] Trying to align next block...\n");
+        res = find_valid_block(pcap, filesize);
 
-      /* increase corruption counter */
-      fixes++;
+        /* output information about skipped bytes */
+        printf("[-] Found %ld bytes of unknown data ==> SKIPPING.\n", ftell(pcap)-bytes);
 
-      /* did we find a next block at all? */
-      if (res == -1) {
-        /* EOF reached while searching --> no more blocks */
-        if (verbose) printf("[*] No more valid blocks found inside file! (maybe it was the last one)\n");
-        break;
+        /* increase corruption counter */
+        fixes++;
+
+        /* did we find a next block at all? */
+        if (res == -1) {
+          /* EOF reached while searching --> no more blocks */
+          if (verbose >= 1) printf("[*] No more valid blocks found inside file! (maybe it was the last one)\n");
+          break;
+        }
+
       }
 
     }
@@ -1230,7 +1240,7 @@ int find_valid_block(FILE *pcap, unsigned long filesize) {
       bytes = fread(&check, sizeof(check), 1, pcap);
       if (check == bh.total_length) {
         /* also the second block size value is correct! */
-        if (verbose) printf("[+] FOUND: Block (Type: 0x%08x) at Position %ld\n", bh.block_type, i);
+        if (verbose >= 1) printf("[+] FOUND: Block (Type: 0x%08x) at Position %ld\n", bh.block_type, i);
 
         /* set pointer to next block position */
         fseek(pcap, i, SEEK_SET);
