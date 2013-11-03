@@ -37,6 +37,7 @@
 
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
 #define NETMON_MAGIC 0x55424d47     /* netmon file magic */
+#define NETMON11_MAGIC 0x53535452   /* netmon 1.1 file magic */
 #define ETHERPEEK_MAGIC 0x7265767f  /* EtherPeek/AiroPeek/OmniPeek file magic */
 
 /* configuration variables */
@@ -284,6 +285,7 @@ int main(int argc, char *argv[]) {
 
     /* netmon file format --> often used with pcapfix but NOT supported (yet) */
     case NETMON_MAGIC:
+    case NETMON11_MAGIC:
       printf("[-] This is a NetMon file, which is not supported.\n\n");
 
       /* close input and output files */

@@ -248,7 +248,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   /* evaluate the integrity of the global header */
   if (hdr_integ == 0) { /* no field has been corrupted? --> header is intact */
     printf("[+] The global pcap header seems to be fine!\n");
-  } else if (hdr_integ >= 5) { /* there have been five or more (of seven) corrupted fields? --> header is missing */
+  } else if (hdr_integ >= 4) { /* there have been five or more (of seven) corrupted fields? --> header is missing */
     printf("[-] The global pcap header seems to be missing ==> CORRECTED!\n");
     /* we need to set the file pointer to the beginning of the file, because
      * further packet search depends on this position and without a global
@@ -556,7 +556,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
   /* did we reach the end of pcap file? */
   if (pos != filesize) { /* no ==> data missing == FAILED */
-    printf("[-] Failed!\n\n");
+    printf("[-] Reached EOF without finding more packets!\n");
     corrupted = -1;	/* the file could not be repaired */
   }
 

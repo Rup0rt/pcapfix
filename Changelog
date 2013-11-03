@@ -4,6 +4,7 @@ pcapfix Changelog
 1.0.1 - 03.11.2013
 ------------------
 * changed progress bar to normal output line
+* changed missing pcap header threshold
 * added block type of zero to unknown blocks (pcapng)
 * added support for USB, SERIAL and BLUETOOTH link types
 * added detection of netmon and etherpeek file types
