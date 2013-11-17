@@ -1,5 +1,0 @@
-* more than 0xffff snaplen (huge packets) (need oversized pcap files for testing) (do those packets even exist???)
-* ethernet frame check?
-* repair pcap based on ip chksum
-* repair ascii-mode transfered pcap files (whole packets!)
-

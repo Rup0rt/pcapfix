@@ -1,12 +1,23 @@
 /*******************************************************************************
  *
- * pcapfix.c - pcap file repair tool
  * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
- * License: GPLv3
  *
- * Last Modified: 03.11.2013
+ * This file is part of Pcapfix.
  *
- * Command line: pcapfix [-d] [-n] [-t link_type] [-v] <pcap(ng)_file>
+ * Pcapfix is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or any later version.
+ *
+ * Pcapfix is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Pcapfix. If not, see http://www.gnu.org/licenses/.
+ *
+ * Last Modified: 17.11.2013
+ *
+ *******************************************************************************
  *
  * Description:
  *
@@ -33,7 +44,7 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.0.1"			        /* pcapfix version */
+#define VERSION "1.0.2"			        /* pcapfix version */
 
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
 #define NETMON_MAGIC 0x55424d47     /* netmon file magic */

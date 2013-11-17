@@ -1,6 +1,10 @@
 pcapfix Changelog
 *****************
 
+1.0.2 - 17.11.2013
+------------------
+* added GPLv3 license statement into every file
+
 1.0.1 - 03.11.2013
 ------------------
 * added reparation block type id zero (pcapng)
