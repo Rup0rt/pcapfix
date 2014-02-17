@@ -27,8 +27,8 @@
 /* Global header (http://v2.nat32.com/pcap.htm) */
 struct global_hdr_s {
   u_int32_t magic_number;   /* magic number */
-  u_short version_major;  	/* major version number */
-  u_short version_minor;  	/* minor version number */
+  u_int16_t version_major;  	/* major version number */
+  u_int16_t version_minor;  	/* minor version number */
   int32_t thiszone;       	/* GMT to local correction */
   u_int32_t sigfigs;        /* accuracy of timestamps */
   u_int32_t snaplen;        /* max length of captured packets, in octets */

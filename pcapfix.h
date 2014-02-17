@@ -20,20 +20,23 @@
 #ifndef PF_PCAPFIX
 #define PF_PCAPFIX
 
+#define _FILE_OFFSET_BITS 64
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <inttypes.h>
 
 #ifdef __WIN32__
   #include <Winsock.h>   		/* needed for htons,htonl on windows systems */
-
+  
   /* compatibility for fixed size integer types on windows */
   typedef uint8_t u_int8_t;
   typedef uint16_t u_int16_t;
   typedef uint32_t u_int32_t;
-
+  
 #else
   #include <libgen.h>    		/* needed for basename */
   #include <arpa/inet.h>		/* htons, htonl */

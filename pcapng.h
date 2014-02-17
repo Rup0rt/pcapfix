@@ -62,7 +62,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix);
  *          -1   error (reached EOF without finding a valid block)
  *
  */
-int find_valid_block(FILE *pcap, unsigned long filesize);
+int find_valid_block(FILE *pcap, uint64_t filesize);
 
 /*
  * Function:  write_shb

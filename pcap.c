@@ -149,10 +149,10 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   char hdrbuffer[sizeof(packet_hdr)*2];		/* the buffer that will be used to find a proper packet */
   char buffer[65535];				              /* the packet body */
 
-  unsigned long pos = 0;			            /* position of current packet header */
-  unsigned long nextpos = 0;			        /* possible position of next packets header */
-  unsigned long bytes;				            /* read/written bytes counter (unused yet) */
-  unsigned long filesize;                 /* filesize of input file in bytes */
+  uint64_t pos = 0;			            /* position of current packet header */
+  uint64_t nextpos = 0;			        /* possible position of next packets header */
+  uint64_t bytes;				            /* read/written bytes counter (unused yet) */
+  uint64_t filesize;                 /* filesize of input file in bytes */
   unsigned int count;				              /* packet counter */
   unsigned int step = 1;                  /* step counter for progress bar */
   unsigned int last_correct_ts_sec = 0;		/* timestamp of the last proper packet found (seconds) */
@@ -164,9 +164,10 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   int res;					                      /* the result of the header check == the offset of body shifting */
 
   /* get size of input file */
-  fseek(pcap, 0, SEEK_END);
-  filesize = ftell(pcap);
-  fseek(pcap, 0, SEEK_SET);
+  fseeko(pcap, 0, SEEK_END);
+  filesize = ftello(pcap);
+  fseeko(pcap, 0, SEEK_SET);
+  printf("[*] File size: %" PRIu64 " bytes.\n", filesize);
 
   /* BEGIN GLOBAL HEADER CHECK */
 
@@ -272,7 +273,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
     /* we need to set the file pointer to the beginning of the file, because
      * further packet search depends on this position and without a global
      * header the first packet might begin there */
-    fseek(pcap, 0, SEEK_SET);
+    fseeko(pcap, 0, SEEK_SET);
 
     /* set important header values to defaults */
     global_hdr.snaplen = conint(65535);
@@ -305,7 +306,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
 
 	/* get current file pointer position */
-	pos = ftell(pcap);
+	pos = ftello(pcap);
 
   /* loop the pcap files packets until pos has reacher end of file */
   for (count=1; pos < filesize; count++) {
@@ -325,7 +326,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
       /* realign packet body (based on possible-ascii corrupted pcap header) */
       pos += res;
-      fseek(pcap, pos+16, SEEK_SET);
+      fseeko(pcap, pos+16, SEEK_SET);
 
       /* try to read the packet body AND check if there are still at least 16 bytes left for the next pcap packet header */
       if ((fread(&buffer, conint(packet_hdr.incl_len), 1, pcap) == 0) || ((filesize-(pos+16+conint(packet_hdr.incl_len)) > 0) && (filesize-(pos+16+conint(packet_hdr.incl_len)) < 16))) {
@@ -341,7 +342,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
         if (conint(packet_hdr.incl_len) > conint(packet_hdr.orig_len)) packet_hdr.orig_len = packet_hdr.incl_len;
 
         /* print out information */
-        printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+        printf("[+] CORRECTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
         corrupted++;
       }
 
@@ -360,18 +361,18 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
         for (nextpos=pos+16+1; (nextpos < pos+16+conint(packet_hdr.incl_len)+32) || (count == 1 && deep_scan == 1); nextpos++) {
 
           /* read the possible next packets header */
-          fseek(pcap, nextpos, SEEK_SET);
+          fseeko(pcap, nextpos, SEEK_SET);
           bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
 
           /* heavy verbose output :-) */
-          if (verbose >= 2) printf("[*] Trying Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
+          if (verbose >= 2) printf("[*] Trying Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
           /* check the header for plausibility */
           res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &next_packet_hdr);
           if (res != -1) {
 
             /* we found a proper header inside the packets body! */
-            if (verbose >= 1) printf("[-] FOUND OVERLAPPING data of Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
+            if (verbose >= 1) printf("[-] FOUND OVERLAPPING data of Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
             /* correct the prior packets length information fields to align the overlapped packet */
             packet_hdr.incl_len = conint(nextpos-(pos+16)+res);	/* also include ascii corruption offset (res) */
@@ -395,7 +396,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
             }
 
             /* print out information */
-            printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+            printf("[+] CORRECTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
             corrupted++;
 
             /* overlapping seems to be a result of ascii-transferred pcap files via FTP */
@@ -407,10 +408,10 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
       }
 
       /* reset file fointer to next packet */
-      fseek(pcap, pos+16+conint(packet_hdr.incl_len), SEEK_SET);
+      fseeko(pcap, pos+16+conint(packet_hdr.incl_len), SEEK_SET);
 
       /* we found a correct packet (and aligned it maybe) */
-      if (verbose >= 1) printf("[+] Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+      if (verbose >= 1) printf("[+] Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
       /* write last packet */
       bytes = fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	      /* write packet header to output file */
@@ -424,14 +425,14 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
       /* PACKET IS CORRUPT */
 
-      if (verbose >= 1) printf("[-] CORRUPTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+      if (verbose >= 1) printf("[-] CORRUPTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
       /* scan from the current position to the maximum packet size and look for a next proper packet header to align the corrupted packet
        * also do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
       for (nextpos=pos+16+1; (nextpos <= pos+16+65535) || (count == 1 && deep_scan == 1); nextpos++) {
 
         /* read the possible next packets header */
-        fseek(pcap, nextpos, SEEK_SET);
+        fseeko(pcap, nextpos, SEEK_SET);
         if (fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap) == 0) {
 
           /* did we read over EOF AND havent found the first packet yet? then we need to abort! */
@@ -459,7 +460,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
           }
 
           /* read the packets body (size based on the just found next packets position) */
-          fseek(pcap, pos+16, SEEK_SET);
+          fseeko(pcap, pos+16, SEEK_SET);
           bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
           /* write repaired packet header and packet body */
@@ -471,7 +472,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
           last_correct_ts_usec = packet_hdr.ts_usec;
 
           /* print out information */
-          printf("[+] CORRECTED LAST Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+          printf("[+] CORRECTED LAST Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
           corrupted++;
 
           break;
@@ -481,7 +482,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
         if (corrupted == -1) break;
 
         /* heavy verbose output :-) */
-        if (verbose >= 2) printf("[*] Trying Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
+        if (verbose >= 2) printf("[*] Trying Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
         /* check if next packets header looks proper */
         res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &next_packet_hdr);
@@ -490,10 +491,10 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
           /* if we found a packet that is below the top 65535 bytes (deep scan) we cut it off and take the second packet as first one */
           if ((nextpos-(pos+16) > 65535) && (count == 1) && (deep_scan == 1)) {
 
-            if (verbose >= 1) printf("[+] (DEEP SCAN) FOUND FIRST Packet #%u at position %ld (%u | %u | %u | %u).\n", count, nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
+            if (verbose >= 1) printf("[+] (DEEP SCAN) FOUND FIRST Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
             /* set the filepoint to the top of the first packet to be read in next loop iteration */
-            fseek(pcap, nextpos, SEEK_SET);
+            fseeko(pcap, nextpos, SEEK_SET);
 
             /* correct counter due to deep scan */
             count--;
@@ -501,7 +502,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
           } else { /* found next packet (NO deep scan mode) */
 
             /* we found the NEXT packets header, now we are able to align the corrupted packet */
-            if (verbose >= 1) printf("[+] FOUND NEXT Packet #%u at position %ld (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
+            if (verbose >= 1) printf("[+] FOUND NEXT Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
             /* correct the corrupted pcap packet header to match the just found next packet header */
             packet_hdr.incl_len = conint(nextpos-(pos+16));
@@ -527,7 +528,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
             }
 
             /* read the packets body (size based on the just found next packets position) */
-            fseek(pcap, pos+16, SEEK_SET);
+            fseeko(pcap, pos+16, SEEK_SET);
             bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
             /* write repaired packet header and packet body */
@@ -539,7 +540,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
             last_correct_ts_usec = packet_hdr.ts_usec;
 
             /* print out information */
-            printf("[+] CORRECTED Packet #%u at position %ld (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+            printf("[+] CORRECTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
           }
 
@@ -567,7 +568,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
     }
 
     /* get current file pointer position to start next loop iteration */
-    pos = ftell(pcap);
+    pos = ftello(pcap);
 
   }
 

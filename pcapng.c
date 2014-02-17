@@ -28,29 +28,29 @@ struct block_header {
 
 /* Header of all pcapng options */
 struct option_header {
-	u_short		option_code;    /* option code - depending of block (0 - end of opts, 1 - comment are in common) */
-	u_short		option_length;  /* option length - length of option in bytes (will be padded to 32bit) */
+	u_int16_t		option_code;    /* option code - depending of block (0 - end of opts, 1 - comment are in common) */
+	u_int16_t		option_length;  /* option length - length of option in bytes (will be padded to 32bit) */
 };
 
 /* Section Header Block (SHB) - ID 0x0A0D0D0A */
 struct section_header_block {
 	u_int32_t	byte_order_magic; /* byte order magic - indicates swapped data */
-	u_short		major_version;    /* major version of pcapng (1 atm) */
-	u_short		minor_version;    /* minor version of pcapng (0 atm) */
+	u_int16_t		major_version;    /* major version of pcapng (1 atm) */
+	u_int16_t		minor_version;    /* minor version of pcapng (0 atm) */
 	int64_t	section_length;   /* length of section - can be -1 (parsing necessary) */
 };
 
 /* Interface Description Block (IDB) - ID 0x00000001 */
 struct interface_description_block {
-	u_short		linktype;   /* the link layer type (was -network- in classic pcap global header) */
-	u_short		reserved;   /* 2 bytes of reserved data */
+	u_int16_t		linktype;   /* the link layer type (was -network- in classic pcap global header) */
+	u_int16_t		reserved;   /* 2 bytes of reserved data */
 	u_int32_t	snaplen;    /* maximum number of bytes dumped from each packet (was -snaplen- in classic pcap global header */
 };
 
 /* Packet Block (PB) - ID 0x00000002 (OBSOLETE - EPB should be used instead) */
 struct packet_block {
-	u_short		interface_id;   /* the interface the packet was captured from - identified by interface description block in current section */
-	u_short		drops_count;    /* packet dropped by IF and OS since prior packet */
+	u_int16_t		interface_id;   /* the interface the packet was captured from - identified by interface description block in current section */
+	u_int16_t		drops_count;    /* packet dropped by IF and OS since prior packet */
 	u_int32_t	timestamp_high; /* high bytes of timestamp */
 	u_int32_t	timestamp_low;  /* low bytes of timestamp */
 	u_int32_t	caplen;         /* length of packet in the capture file (was -incl_len- in classic pcap packet header) */
@@ -64,8 +64,8 @@ struct simple_packet_block {
 
 /* Name Resolution Block (NRB) - ID 0x00000004 */
 struct name_resolution_block {
-	u_short		record_type;    /* type of record (ipv4 / ipv6) */
-	u_short		record_length;  /* length of record value */
+	u_int16_t		record_type;    /* type of record (ipv4 / ipv6) */
+	u_int16_t		record_length;  /* length of record value */
 };
 
 /* Interface Statistics Block - ID 0x00000005 */
@@ -113,10 +113,10 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   char *data;                               /* Storage for packet data */
   char *new_block;                          /* Storage for new (maybe repaired) block to finally write into ouput file */
 
-  unsigned long bytes;                      /* written bytes/blocks counter */
-  unsigned long padding;                    /* calculation for padding bytes */
-  unsigned long pos;                        /* current block position in input file */
-  unsigned long filesize;                   /* size of input file */
+  uint64_t bytes;                      /* written bytes/blocks counter */
+  uint64_t padding;                    /* calculation for padding bytes */
+  uint64_t pos;                        /* current block position in input file */
+  uint64_t filesize;                   /* size of input file */
   unsigned int block_pos;                   /* current position inside -new_block- to write further data to */
   unsigned int check;                       /* variable to check end of blocks sizes */
   unsigned int count;                       /* option / record counter to create EOO/EOR if necessary */
@@ -124,14 +124,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   unsigned int idb_num;                     /* number of IDB counter */
   unsigned int step;                        /* step counter for progress bar */
 
-  long left;                                /* bytes left to proceed until current blocks end is reached */
+  int64_t left;                                /* bytes left to proceed until current blocks end is reached */
   int fixes;                                /* corruptions counter */
   int res;                                  /* return values */
 
   /* get file size of input file */
-  fseek(pcap, 0, SEEK_END);
-  filesize = ftell(pcap);
-  fseek(pcap, 0, SEEK_SET);
+  fseeko(pcap, 0, SEEK_END);
+  filesize = ftello(pcap);
+  fseeko(pcap, 0, SEEK_SET);
 
   /* init variables */
   pos = 0;            /* begin file check at position 0 */
@@ -157,7 +157,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     if (bh.total_length > filesize-pos) {
       /* block size is larger than bytes in input file */
 
-      if (verbose >= 1) printf("[-] Block Length (%u) exceeds file size (%ld).\n", bh.total_length, filesize);
+      if (verbose >= 1) printf("[-] Block Length (%u) exceeds file size (%" PRIu64 ").\n", bh.total_length, filesize);
 
       /* search for next valid block */
       if (verbose >= 1) printf("[*] Trying to align next block...\n");
@@ -167,10 +167,10 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       if (res == 0) {
         /* another valid block has been found in the file */
 
-        if (verbose >= 1) printf("[+] GOT Next Block at Position %ld\n", ftell(pcap));
+        if (verbose >= 1) printf("[+] GOT Next Block at Position %" PRIu64 "\n", ftello(pcap));
 
         /* adjust total blocks length to match next block */
-        bh.total_length = ftell(pcap)-pos;
+        bh.total_length = ftello(pcap)-pos;
 
       } else {
         /* there are no more blocks inside the file */
@@ -186,7 +186,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       else printf("[-] Invalid Block size => CORRECTED.\n");
 
       /* reset input file pointer behind block header */
-      fseek(pcap, pos+sizeof(struct block_header), SEEK_SET);
+      fseeko(pcap, pos+sizeof(struct block_header), SEEK_SET);
 
       /* increase corruptions counter */
       fixes++;
@@ -246,10 +246,10 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* section length */
         if (shb.section_length == -1) {
-          if (verbose >= 1) printf("[*] Section length: %ld\n", shb.section_length);
+          if (verbose >= 1) printf("[*] Section length: %" PRIu64 "\n", shb.section_length);
 
         } else {
-          if (verbose >= 1) printf("[*] Section length: %ld ==> SETTING TO -1\n", shb.section_length);
+          if (verbose >= 1) printf("[*] Section length: %" PRIu64 " ==> SETTING TO -1\n", shb.section_length);
           shb.section_length = -1;
         }
 
@@ -1008,8 +1008,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         }
 
         /* check if packet capture size exceeds packet length */
-        if (epb.caplen > left) {
-          printf("[-] Enhanced packet data exceeds packet length (%u > %ld) ==> CORRECTED.\n", epb.caplen, left);
+        if ((int)epb.caplen > left) {
+          printf("[-] Enhanced packet data exceeds packet length (%u > %" PRIu64 ") ==> CORRECTED.\n", epb.caplen, left);
           epb.caplen = left;
 
           fixes++;
@@ -1165,7 +1165,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       if (verbose >= 2) printf("[+] End of Block reached... byte counter is correct!\n");
     } else {
       /* we did not read until end of block - maybe due to option skipping */
-      if (verbose >= 1) printf("[-] Did not hit the end of the block! (%ld bytes left)\n", left);
+      if (verbose >= 1) printf("[-] Did not hit the end of the block! (%" PRIu64 " bytes left)\n", left);
     }
 
     /* check for correct block end (block size) */
@@ -1184,7 +1184,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* we did not hit the end of block - need to search for next one */
 
       /* remeber current position to know how much bytes have been skipped */
-      bytes = ftell(pcap);
+      bytes = ftello(pcap);
 
       if (bytes != filesize) {
 
@@ -1193,7 +1193,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         res = find_valid_block(pcap, filesize);
 
         /* output information about skipped bytes */
-        printf("[-] Found %ld bytes of unknown data ==> SKIPPING.\n", ftell(pcap)-bytes);
+        printf("[-] Found %" PRIu64 " bytes of unknown data ==> SKIPPING.\n", ftello(pcap)-bytes);
 
         /* increase corruption counter */
         fixes++;
@@ -1210,7 +1210,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     }
 
     /* set positon of next block */
-    pos = ftell(pcap);
+    pos = ftello(pcap);
 
   }
 
@@ -1236,16 +1236,16 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
  *          -1   error (reached EOF without finding a valid block)
  *
  */
-int find_valid_block(FILE *pcap, unsigned long filesize) {
+int find_valid_block(FILE *pcap, uint64_t filesize) {
+  uint64_t i;
   unsigned int bytes;
-  unsigned long i;
   unsigned int check;                       /* variable to check end of blocks sizes */
   struct block_header bh;
 
   /* bytewise processing of input file */
-  for (i=ftell(pcap)-4; i<filesize; i++) {
+  for (i=ftello(pcap)-4; i<filesize; i++) {
     /* set file pointer to loop position */
-    fseek(pcap, i, SEEK_SET);
+    fseeko(pcap, i, SEEK_SET);
 
     /* read possbile block header */
     bytes = fread(&bh, sizeof(bh), 1, pcap);
@@ -1258,14 +1258,14 @@ int find_valid_block(FILE *pcap, unsigned long filesize) {
       /* block header might be valid */
 
       /* check if the second size value is valid too */
-      fseek(pcap, i+bh.total_length-4, SEEK_SET);
+      fseeko(pcap, i+bh.total_length-4, SEEK_SET);
       bytes = fread(&check, sizeof(check), 1, pcap);
       if (check == bh.total_length) {
         /* also the second block size value is correct! */
-        if (verbose >= 1) printf("[+] FOUND: Block (Type: 0x%08x) at Position %ld\n", bh.block_type, i);
+        if (verbose >= 1) printf("[+] FOUND: Block (Type: 0x%08x) at Position %" PRIu64 "\n", bh.block_type, i);
 
         /* set pointer to next block position */
-        fseek(pcap, i, SEEK_SET);
+        fseeko(pcap, i, SEEK_SET);
         return(0);
       }
     }
@@ -1292,7 +1292,7 @@ int write_shb(FILE *pcap_fix) {
   struct section_header_block shb;  /* section header block */
   struct option_header oh;          /* options header */
 
-  unsigned long bytes;              /* written bytes/blocks counter */
+  uint64_t bytes;              /* written bytes/blocks counter */
   unsigned int size = 0;            /* size of whole block */
   unsigned int padding;             /* padding of data */
   unsigned char *data;              /* data buffer */
@@ -1382,7 +1382,7 @@ int write_idb(FILE *pcap_fix) {
   struct interface_description_block idb;   /* interface description block */
   struct option_header oh;                  /* options header */
 
-  unsigned long bytes;              /* written bytes/blocks counter */
+  uint64_t bytes;              /* written bytes/blocks counter */
   unsigned int size = 0;            /* size of whole block */
   unsigned int padding;             /* padding of data */
   unsigned char *data;              /* data buffer */
