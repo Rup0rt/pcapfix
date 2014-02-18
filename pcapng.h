@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
+ * Copyright (c) 2012-2014 Robert Krause (ruport@f00l.de)
  *
  * This file is part of Pcapfix.
  *

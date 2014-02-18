@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
+ * Copyright (c) 2012-2014 Robert Krause (ruport@f00l.de)
  *
  * This file is part of Pcapfix.
  *
@@ -31,12 +31,12 @@
 
 #ifdef __WIN32__
   #include <Winsock.h>   		/* needed for htons,htonl on windows systems */
-  
+
   /* compatibility for fixed size integer types on windows */
   typedef uint8_t u_int8_t;
   typedef uint16_t u_int16_t;
   typedef uint32_t u_int32_t;
-  
+
 #else
   #include <libgen.h>    		/* needed for basename */
   #include <arpa/inet.h>		/* htons, htonl */
@@ -81,7 +81,7 @@ unsigned int conint(unsigned int var);
  * filesize:  the size of the input pcap file in bytes
  *
  */
-void print_progress(unsigned long pos, unsigned long filesize);
+void print_progress(uint64_t pos, uint64_t filesize);
 
 /* global configuration variables */
 extern int deep_scan;       /* deep scan option (default: no depp scan) */

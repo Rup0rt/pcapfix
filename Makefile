@@ -4,7 +4,7 @@ DOCDIR = $(PREFIX)/share/doc
 MANDIR = $(PREFIX)/share/man
 
 OPTFLAGS = $(shell getconf LFS_CFLAGS) -D_FORTIFY_SOURCE=2 -O2 -fstack-protector --param=ssp-buffer-size=4
-WARNFLAGS = -Wall -Wextra -pedantic -Wformat -Werror=format-security
+WARNFLAGS = -Wall -Wextra -std=gnu99 -pedantic -Wformat -Werror=format-security
 DEBUGFLAGS = -g
 CFLAGS += $(OPTFLAGS) $(WARNFLAGS) $(DEBUGFLAGS)
 LDFLAGS += -Wl,--as-needed,-z,relro
@@ -29,3 +29,4 @@ uninstall:
 clean:
 	rm -f *.o
 	rm -f pcapfix
+	

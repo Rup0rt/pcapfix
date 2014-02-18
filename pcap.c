@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
+ * Copyright (c) 2012-2014 Robert Krause (ruport@f00l.de)
  *
  * This file is part of Pcapfix.
  *
@@ -144,30 +144,29 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
 int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   struct global_hdr_s global_hdr;		      /* global header data */
   struct packet_hdr_s packet_hdr;		      /* packet header data */
-  struct packet_hdr_s next_packet_hdr;		/* next packet header data to look forward */
+  struct packet_hdr_s next_packet_hdr;		  /* next packet header data to look forward */
 
-  char hdrbuffer[sizeof(packet_hdr)*2];		/* the buffer that will be used to find a proper packet */
-  char buffer[65535];				              /* the packet body */
+  char hdrbuffer[sizeof(packet_hdr)*2];		  /* the buffer that will be used to find a proper packet */
+  char buffer[65535];				          /* the packet body */
 
-  uint64_t pos = 0;			            /* position of current packet header */
-  uint64_t nextpos = 0;			        /* possible position of next packets header */
-  uint64_t bytes;				            /* read/written bytes counter (unused yet) */
-  uint64_t filesize;                 /* filesize of input file in bytes */
-  unsigned int count;				              /* packet counter */
-  unsigned int step = 1;                  /* step counter for progress bar */
-  unsigned int last_correct_ts_sec = 0;		/* timestamp of the last proper packet found (seconds) */
-  unsigned int last_correct_ts_usec = 0;	/* timestamp of the last proper packet found (microseconds or nanoseconds) */
+  uint64_t pos = 0;			                  /* position of current packet header */
+  uint64_t nextpos = 0;			              /* possible position of next packets header */
+  uint64_t bytes;				              /* read/written bytes counter (unused yet) */
+  uint64_t filesize;                          /* filesize of input file in bytes */
+  unsigned int count;				          /* packet counter */
+  unsigned int step = 1;                      /* step counter for progress bar */
+  unsigned int last_correct_ts_sec = 0;		  /* timestamp of the last proper packet found (seconds) */
+  unsigned int last_correct_ts_usec = 0;	  /* timestamp of the last proper packet found (microseconds or nanoseconds) */
   unsigned short hdr_integ;			          /* integrity counter of global header */
 
-  int ascii = 0;				                  /* ascii counter for possible ascii-corrupted packets */
-  int corrupted = 0;				              /* corrupted packet counter for final output */
-  int res;					                      /* the result of the header check == the offset of body shifting */
+  int ascii = 0;				              /* ascii counter for possible ascii-corrupted packets */
+  int corrupted = 0;				          /* corrupted packet counter for final output */
+  int res;					                  /* the result of the header check == the offset of body shifting */
 
   /* get size of input file */
   fseeko(pcap, 0, SEEK_END);
   filesize = ftello(pcap);
   fseeko(pcap, 0, SEEK_SET);
-  printf("[*] File size: %" PRIu64 " bytes.\n", filesize);
 
   /* BEGIN GLOBAL HEADER CHECK */
 
@@ -304,9 +303,8 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
    * if not check for overlapping packets.
    */
 
-
-	/* get current file pointer position */
-	pos = ftello(pcap);
+  /* get current file pointer position */
+  pos = ftello(pcap);
 
   /* loop the pcap files packets until pos has reacher end of file */
   for (count=1; pos < filesize; count++) {

@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
+ * Copyright (c) 2012-2014 Robert Krause (ruport@f00l.de)
  *
  * This file is part of Pcapfix.
  *
@@ -34,27 +34,27 @@ struct option_header {
 
 /* Section Header Block (SHB) - ID 0x0A0D0D0A */
 struct section_header_block {
-	u_int32_t	byte_order_magic; /* byte order magic - indicates swapped data */
-	u_int16_t		major_version;    /* major version of pcapng (1 atm) */
-	u_int16_t		minor_version;    /* minor version of pcapng (0 atm) */
-	int64_t	section_length;   /* length of section - can be -1 (parsing necessary) */
+	u_int32_t	byte_order_magic;   /* byte order magic - indicates swapped data */
+	u_int16_t		major_version;  /* major version of pcapng (1 atm) */
+	u_int16_t		minor_version;  /* minor version of pcapng (0 atm) */
+	int64_t	section_length;         /* length of section - can be -1 (parsing necessary) */
 };
 
 /* Interface Description Block (IDB) - ID 0x00000001 */
 struct interface_description_block {
 	u_int16_t		linktype;   /* the link layer type (was -network- in classic pcap global header) */
 	u_int16_t		reserved;   /* 2 bytes of reserved data */
-	u_int32_t	snaplen;    /* maximum number of bytes dumped from each packet (was -snaplen- in classic pcap global header */
+	u_int32_t	snaplen;        /* maximum number of bytes dumped from each packet (was -snaplen- in classic pcap global header */
 };
 
 /* Packet Block (PB) - ID 0x00000002 (OBSOLETE - EPB should be used instead) */
 struct packet_block {
 	u_int16_t		interface_id;   /* the interface the packet was captured from - identified by interface description block in current section */
 	u_int16_t		drops_count;    /* packet dropped by IF and OS since prior packet */
-	u_int32_t	timestamp_high; /* high bytes of timestamp */
-	u_int32_t	timestamp_low;  /* low bytes of timestamp */
-	u_int32_t	caplen;         /* length of packet in the capture file (was -incl_len- in classic pcap packet header) */
-	u_int32_t	len;            /* length of packet when transmitted (was -orig_len- in classic pcap packet header) */
+	u_int32_t	timestamp_high;     /* high bytes of timestamp */
+	u_int32_t	timestamp_low;      /* low bytes of timestamp */
+	u_int32_t	caplen;             /* length of packet in the capture file (was -incl_len- in classic pcap packet header) */
+	u_int32_t	len;                /* length of packet when transmitted (was -orig_len- in classic pcap packet header) */
 };
 
 /* Simple Packet Block (SPB) - ID 0x00000003 */
@@ -113,10 +113,10 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   char *data;                               /* Storage for packet data */
   char *new_block;                          /* Storage for new (maybe repaired) block to finally write into ouput file */
 
-  uint64_t bytes;                      /* written bytes/blocks counter */
-  uint64_t padding;                    /* calculation for padding bytes */
-  uint64_t pos;                        /* current block position in input file */
-  uint64_t filesize;                   /* size of input file */
+  uint64_t bytes;                           /* written bytes/blocks counter */
+  uint64_t padding;                         /* calculation for padding bytes */
+  uint64_t pos;                             /* current block position in input file */
+  uint64_t filesize;                        /* size of input file */
   unsigned int block_pos;                   /* current position inside -new_block- to write further data to */
   unsigned int check;                       /* variable to check end of blocks sizes */
   unsigned int count;                       /* option / record counter to create EOO/EOR if necessary */
@@ -124,7 +124,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   unsigned int idb_num;                     /* number of IDB counter */
   unsigned int step;                        /* step counter for progress bar */
 
-  int64_t left;                                /* bytes left to proceed until current blocks end is reached */
+  int64_t left;                             /* bytes left to proceed until current blocks end is reached */
   int fixes;                                /* corruptions counter */
   int res;                                  /* return values */
 
@@ -132,6 +132,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   fseeko(pcap, 0, SEEK_END);
   filesize = ftello(pcap);
   fseeko(pcap, 0, SEEK_SET);
+  printf("[*] File size: %" PRIu64 " bytes.\n", filesize);
 
   /* init variables */
   pos = 0;            /* begin file check at position 0 */

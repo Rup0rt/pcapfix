@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * Copyright (c) 2012-2013 Robert Krause (ruport@f00l.de)
+ * Copyright (c) 2012-2014 Robert Krause (ruport@f00l.de)
  *
  * This file is part of Pcapfix.
  *
@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License along with
  * Pcapfix. If not, see http://www.gnu.org/licenses/.
  *
- * Last Modified: 17.11.2013
+ * Last Modified: 18.02.2014
  *
  *******************************************************************************
  *
@@ -44,7 +44,7 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.0.2"			        /* pcapfix version */
+#define VERSION "1.0.2"			    /* pcapfix version */
 
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
 #define NETMON_MAGIC 0x55424d47     /* netmon file magic */
@@ -52,11 +52,11 @@
 #define ETHERPEEK_MAGIC 0x7265767f  /* EtherPeek/AiroPeek/OmniPeek file magic */
 
 /* configuration variables */
-int deep_scan = 0;		   /* deep scan option (default: no deep scan) */
-int verbose = 0;				 /* verbose output option (default: dont be verbose) */
-int swapped = 0;			   /* pcap file is swapped (big endian) */
-int data_link_type = -1; /* data link type (default: LINKTYPE_ETHERNET) */
-int pcapng = 0;          /* file format to assume */
+int deep_scan = 0;		    /* deep scan option (default: no deep scan) */
+int verbose = 0;			/* verbose output option (default: dont be verbose) */
+int swapped = 0;			/* pcap file is swapped (big endian) */
+int data_link_type = -1;    /* data link type (default: LINKTYPE_ETHERNET) */
+int pcapng = 0;             /* file format to assume */
 
 /* header placeholder */
 unsigned int header_magic;
@@ -125,7 +125,7 @@ unsigned int conint(unsigned int var) {
  * filesize:  the size of the input pcap file in bytes
  *
  */
-void print_progress(unsigned long pos, unsigned long filesize) {
+void print_progress(uint64_t pos, uint64_t filesize) {
   float percentage;	/* pencentage variable */
 
   /* calculate the current percentage of file analyzing progress */
@@ -162,27 +162,27 @@ void print_progress(unsigned long pos, unsigned long filesize) {
  *
  */
 int main(int argc, char *argv[]) {
-  FILE *pcap, *pcap_fix;			/* input and output file */
-  int option_index = 0;				/* getopt_long option index */
-  int c;                      /* getopts loop counter */
-  int res;                    /* return values */
-  char *filename;             /* filename of input file */
-  char *filebname;            /* filebasename of input file (without path) */
-  char *filename_fix;         /* filename of output file */
-  unsigned long bytes;				/* read/written blocks counter */
-  unsigned long filesize;			/* file size of input pcap file in bytes */
+  FILE *pcap, *pcap_fix;		/* input and output file */
+  int option_index = 0;			/* getopt_long option index */
+  int c;                        /* getopts loop counter */
+  int res;                      /* return values */
+  char *filename;               /* filename of input file */
+  char *filebname;              /* filebasename of input file (without path) */
+  char *filename_fix;           /* filename of output file */
+  uint64_t bytes;		        /* read/written blocks counter */
+  uint64_t filesize;	        /* file size of input pcap file in bytes */
 
   /* init getopt_long options struct */
   struct option long_options[] = {
     {"deep-scan", no_argument, 0, 'd'},				        /* --deep-scan == -d */
-    {"pcapng", no_argument, 0, 'n'},				          /* --pcapng == -n */
-    {"data-link-type", required_argument, 0, 't'},		/* --data-link-type == -t */
-    {"verbose", no_argument, 0, 'v'},				          /* --verbose == -v */
+    {"pcapng", no_argument, 0, 'n'},				        /* --pcapng == -n */
+    {"data-link-type", required_argument, 0, 't'},		    /* --data-link-type == -t */
+    {"verbose", no_argument, 0, 'v'},				        /* --verbose == -v */
     {0, 0, 0, 0}
   };
 
   /* print out pcapfix header information */
-  printf("pcapfix %s (c) 2012-2013 Robert Krause\n\n", VERSION);
+  printf("pcapfix %s (c) 2012-2014 Robert Krause\n\n", VERSION);
 
   /* scan for options and arguments */
   while ((c = getopt_long(argc, argv, ":t:v::d::n::", long_options, &option_index)) != -1) {
@@ -252,8 +252,9 @@ int main(int argc, char *argv[]) {
   /* basic checks of input file */
 
   /* get file size */
-  fseek(pcap, 0, SEEK_END);
-  filesize = ftell(pcap);
+  fseeko(pcap, 0, SEEK_END);
+  filesize = ftello(pcap);
+  printf("[*] File size: %" PRIu64 " bytes.\n", filesize);
 
   /* check for empty file */
   if (filesize == 0) {
@@ -265,7 +266,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* reset file pointer to file begin */
-  fseek(pcap, 0, SEEK_SET);
+  fseeko(pcap, 0, SEEK_SET);
 
   /* read header to header magic for further inspection */
   bytes = fread(&header_magic, sizeof(header_magic), 1, pcap);
@@ -276,7 +277,7 @@ int main(int argc, char *argv[]) {
     remove(filename_fix);
     return(-5);
   }
-  fseek(pcap, 0, SEEK_SET);
+  fseeko(pcap, 0, SEEK_SET);
 
   /* check for file type */
   switch (header_magic) {
