@@ -1008,7 +1008,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         }
 
         /* check if packet capture size exceeds packet length */
-        if ((int)epb.caplen > left) {
+        if (epb.caplen > left) {
           printf("[-] Enhanced packet data exceeds packet length (%u > %" PRIu64 ") ==> CORRECTED.\n", epb.caplen, left);
           epb.caplen = left;
 
