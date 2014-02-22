@@ -32,6 +32,10 @@
 #ifdef __WIN32__
   #include <Winsock.h>   		/* needed for htons,htonl on windows systems */
 
+  /* fseeko, ftello are unkown on mingw, use o64 instead */
+  #define fseeko fseeko64
+  #define ftello ftello64
+
   /* compatibility for fixed size integer types on windows */
   typedef uint8_t u_int8_t;
   typedef uint16_t u_int16_t;
