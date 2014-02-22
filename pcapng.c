@@ -132,7 +132,6 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   fseeko(pcap, 0, SEEK_END);
   filesize = ftello(pcap);
   fseeko(pcap, 0, SEEK_SET);
-  printf("[*] File size: %" PRIu64 " bytes.\n", filesize);
 
   /* init variables */
   pos = 0;            /* begin file check at position 0 */
