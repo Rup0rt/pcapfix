@@ -44,7 +44,7 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.0.2"			    /* pcapfix version */
+#define VERSION "1.0.3-devel"			    /* pcapfix version */
 
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
 #define NETMON_MAGIC 0x55424d47     /* netmon file magic */

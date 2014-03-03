@@ -123,6 +123,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   unsigned int shb_num;                     /* number of SHB counter */
   unsigned int idb_num;                     /* number of IDB counter */
   unsigned int step;                        /* step counter for progress bar */
+  unsigned int packets;
 
   int64_t left;                             /* bytes left to proceed until current blocks end is reached */
   int fixes;                                /* corruptions counter */
@@ -135,13 +136,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   /* init variables */
   pos = 0;            /* begin file check at position 0 */
+  packets = 0;
   fixes = 0;          /* no corruptions fixed yet */
   shb_num = 0;        /* no SHBs progressed yet */
   idb_num = 0;        /* no IDBs progressed yet */
   step = 1;           /* progress bar starts at 0 steps */
 
   /* loop every block inside pcapng file until end of file is reached */
-  while (pos < filesize) {
+
+  while (pos < filesize-sizeof(bh)) {
 
     /* print out progress bar if in non-verbose mode */
     if ((verbose == 0) && (5*(float)pos/(float)filesize > step)) {
@@ -345,6 +348,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Packet Block */
       case TYPE_PB:
+	packets++;
 
         /* check for the mandatory SBH that MUST be before any packet! */
         if (shb_num == 0) {
@@ -357,7 +361,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 2) printf("[*] FOUND: Packet Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 2) printf("[*] FOUND Packet #%u: Packet Block: 0x%08x (%u bytes)\n", packets, bh.block_type, bh.total_length);
 
         /* read packet block into struct */
         bytes = fread(&pb, sizeof(pb), 1, pcap);
@@ -478,6 +482,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Simple Packet Block */
       case TYPE_SPB:
+	packets++;
 
         /* check for the mandatory SBH that MUST be before any packet! */
         if (shb_num == 0) {
@@ -490,7 +495,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 2) printf("[*] FOUND: Simple Packet Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 2) printf("[*] FOUND Packet #%u: Simple Packet Block: 0x%08x (%u bytes)\n", packets, bh.block_type, bh.total_length);
 
         /* read simple packet block */
         bytes = fread(&spb, sizeof(spb), 1, pcap);
@@ -977,6 +982,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Enhanced Packet Block */
       case TYPE_EPB:
+	packets++;
 
         /* check for the mandatory SBH that MUST be before any packet! */
         if (shb_num == 0) {
@@ -989,7 +995,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 2) printf("[*] FOUND: Enhanced Packet Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 2) printf("[*] FOUND Packet #%u: Enhanced Packet Block: 0x%08x (%u bytes)\n", packets, bh.block_type, bh.total_length);
 
         /* read enhanced packet block */
         bytes = fread(&epb, sizeof(epb), 1, pcap);
@@ -1008,8 +1014,16 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         }
 
         /* check if packet capture size exceeds packet length */
+        if (epb.caplen > epb.len) {
+          printf("[-] Enhanced packet data exceeds packet capture length (%u > %u) ==> CORRECTED.\n", epb.caplen, epb.len);
+          epb.caplen = epb.len;
+
+          fixes++;
+        }
+
+        /* check if packet capture size exceeds packet length */
         if (epb.caplen > left) {
-          printf("[-] Enhanced packet data exceeds packet length (%u > %" PRIu64 ") ==> CORRECTED.\n", epb.caplen, left);
+          printf("[-] Enhanced packet data exceeds total packet size (%u > %" PRIu64 ") ==> CORRECTED.\n", epb.caplen, left);
           epb.caplen = left;
 
           fixes++;
@@ -1025,7 +1039,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* read packet data from input file */
         data = malloc(padding);
+
         bytes = fread(data, padding, 1, pcap);
+        if (bytes != 1) return -3;
         left -= padding;
 
         /* copy packet data into repaired block */
@@ -1165,7 +1181,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       if (verbose >= 2) printf("[+] End of Block reached... byte counter is correct!\n");
     } else {
       /* we did not read until end of block - maybe due to option skipping */
-      if (verbose >= 1) printf("[-] Did not hit the end of the block! (%" PRIu64 " bytes left)\n", left);
+      if (verbose >= 1) printf("[-] Did not hit the end of the block! (%" PRId64 " bytes left)\n", left);
     }
 
     /* check for correct block end (block size) */
@@ -1193,7 +1209,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         res = find_valid_block(pcap, filesize);
 
         /* output information about skipped bytes */
-        printf("[-] Found %" PRIu64 " bytes of unknown data ==> SKIPPING.\n", ftello(pcap)-bytes);
+        printf("[-] Found %" PRId64 " bytes of unknown data ==> SKIPPING.\n", ftello(pcap)-bytes);
 
         /* increase corruption counter */
         fixes++;
