@@ -356,6 +356,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       case TYPE_PB:
 	packets++;
 
+	/* check for oversized packet */
+        if (-left+sizeof(pb) > 0) {
+          printf("[-] Packet #%u exceeds size of block header (%" PRId64 ") ==> SKIPPING\n", packets, left);
+          /* set to "invalid block" */
+          bh.block_type = -1;
+          break;
+        }
+
         /* check for the mandatory SBH that MUST be before any packet! */
         if (shb_num == 0) {
           /* no SBH before this packet, we NEED to create one */
@@ -396,6 +404,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         /* copy packet block into repaired block */
         memcpy(new_block+block_pos, &pb, sizeof(pb));
         block_pos += sizeof(pb);
+
+        /* check for oversized caplen */
+        if (-left+pb.caplen > 0) {
+          printf("[-] Capture length (%u) exceeds block size ==> CORRECTED.\n", pb.caplen);
+          pb.caplen = left;
+        }
 
         /* calculate padding for packet data */
         padding = pb.caplen;
