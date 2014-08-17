@@ -1,4 +1,4 @@
-pcapfix v1.0.2 README
+pcapfix v1.0.3 README
 *********************
 
 Pcapfix is a tool to repair your damaged or corrupted pcap and pcapng files.
@@ -158,7 +158,7 @@ NUMBER	LINK_TYPE
 COPYRIGHT
 =========
 
-Copyright 2012-2013 Robert Krause
+Copyright 2012-2014 Robert Krause
 
 Pcapfix is free software: you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
