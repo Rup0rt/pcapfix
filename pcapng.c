@@ -1094,23 +1094,27 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         memcpy(new_block+block_pos, &epb, sizeof(epb));
         block_pos += sizeof(epb);
 
-        /* calculate padding for packet data */
-        padding = epb.caplen;
-        if (epb.caplen % 4 != 0) padding += (4 - epb.caplen % 4);
+        /* check for zero capture length */
+        if (epb.caplen != 0) {
 
-        /* read packet data from input file */
-        data = malloc(padding);
+          /* calculate padding for packet data */
+          padding = epb.caplen;
+          if (epb.caplen % 4 != 0) padding += (4 - epb.caplen % 4);
 
-        bytes = fread(data, padding, 1, pcap);
-        if (bytes != 1) return -3;
-        left -= padding;
+          /* read packet data from input file */
+          data = malloc(padding);
 
-        /* copy packet data into repaired block */
-        memcpy(new_block+block_pos, data, padding);
-        block_pos += padding;
+          bytes = fread(data, padding, 1, pcap);
+          if (bytes != 1) return -3;
+          left -= padding;
 
-        /* clean up memory */
-        free(data);
+          /* copy packet data into repaired block */
+          memcpy(new_block+block_pos, data, padding);
+          block_pos += padding;
+
+          /* clean up memory */
+          free(data);
+        }
 
         /* options */
         count = 0;
