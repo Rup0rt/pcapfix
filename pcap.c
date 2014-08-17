@@ -563,6 +563,14 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
         break;
       }
 
+      /* maximum search range reached? -> skip packet and keep on searching */
+      if (deep_scan == 0 && (nextpos > pos+16+65535)) {
+        if (verbose >= 1) printf("[-] No next packet found within max packet range --> SKIPPING!\n");
+
+        /* reset counter because no packet found */
+        count--;
+      }
+
     }
 
     /* get current file pointer position to start next loop iteration */
