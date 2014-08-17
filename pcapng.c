@@ -330,8 +330,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
-          if (-left+padding > 0) {
-            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+          if (padding > (unsigned)left) {
+            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            fixes++;
             break;
           }
 
@@ -493,8 +494,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
-          if (-left+padding > 0) {
-            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+          if (padding > (unsigned)left) {
+            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            fixes++;
             break;
           }
 
@@ -695,8 +697,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
-          if (-left+padding > 0) {
-            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+          if (padding > (unsigned)left) {
+            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            fixes++;
             break;
           }
 
@@ -879,8 +882,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
-          if (-left+padding > 0) {
-            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+          if (padding > (unsigned)left) {
+            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            fixes++;
             break;
           }
 
@@ -1012,8 +1016,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
-          if (-left+padding > 0) {
-            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+          if (padding > (unsigned)left) {
+            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            fixes++;
             break;
           }
 
@@ -1186,8 +1191,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
-          if (-left+padding > 0) {
-            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+          if (padding > (unsigned)left) {
+            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            fixes++;
             break;
           }
 
