@@ -249,10 +249,10 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* section length */
         if (shb.section_length == -1) {
-          if (verbose >= 1) printf("[*] Section length: %" PRIu64 "\n", shb.section_length);
+          if (verbose >= 1) printf("[*] Section length: %" PRId64 "\n", shb.section_length);
 
         } else {
-          if (verbose >= 1) printf("[*] Section length: %" PRIu64 " ==> SETTING TO -1\n", shb.section_length);
+          if (verbose >= 1) printf("[*] Section length: %" PRId64 " ==> SETTING TO -1\n", shb.section_length);
           shb.section_length = -1;
         }
 
