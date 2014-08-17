@@ -374,9 +374,17 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (bytes != 1) return -3;
         left -= sizeof(pb);
 
+        /* pre-check too large interface number (1024) */
+        if (pb.interface_id > 1024) {
+          /* interface id is unusal high --> this field is probably corrupted */
+          printf("[-] Probably corrupted Interface ID #%u (too high?) ==> CORRECTED.\n", pb.interface_id);
+          pb.interface_id = 1;
+          fixes++;
+        }
+
         /* check for the mandatory IDB that MUST identify every packets interface_id */
         while (pb.interface_id >= idb_num) {
-          /* no IDB identifying this packet, we need to create one - until the ID is reached */
+          /* no IDB is identifying this packet, we need to create one - until the ID has been reached */
           printf("[-] Missing IDB for Interface #%u ==> CREATING (#%u).\n", pb.interface_id, idb_num);
           write_idb(pcap_fix);
 
@@ -1031,6 +1039,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         bytes = fread(&epb, sizeof(epb), 1, pcap);
         if (bytes != 1) return -3;
         left -= sizeof(epb);
+
+        /* pre-check too large interface number (1024) */
+        if (epb.interface_id > 1024) {
+          /* interface id is unusal high --> this field is probably corrupted */
+          printf("[-] Probably corrupted Interface ID #%u (too high?) ==> CORRECTED.\n", epb.interface_id);
+          epb.interface_id = 1;
+          fixes++;
+        }
 
         /* check for the mandatory IDB that MUST identify every packets interface_id */
         while (epb.interface_id >= idb_num) {
