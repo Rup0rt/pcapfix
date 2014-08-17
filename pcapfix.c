@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License along with
  * Pcapfix. If not, see http://www.gnu.org/licenses/.
  *
- * Last Modified: 18.02.2014
+ * Last Modified: 17.08.2014
  *
  *******************************************************************************
  *
@@ -73,10 +73,11 @@ unsigned int header_magic;
 void usage(char *progname) {
   printf("Usage: %s [OPTIONS] filename\n", progname);
   printf("OPTIONS:");
-  printf(  "\t-d     , --deep-scan          \tDeep scan (pcap only)\n");
-  printf("\t\t-n     , --pcapng             \tforce pcapng format\n");
-  printf("\t\t-t <nr>, --data-link-type <nr>\tData link type\n");
-  printf("\t\t-v     , --verbose            \tVerbose output\n");
+  printf(  "\t-d        , --deep-scan          \tDeep scan (pcap only)\n");
+  printf("\t\t-n        , --pcapng             \tforce pcapng format\n");
+  printf("\t\t-o <file> , --outfile <file>     \tset output file name\n");
+  printf("\t\t-t <nr>   , --data-link-type <nr>\tData link type\n");
+  printf("\t\t-v        , --verbose            \tVerbose output\n");
   printf("\n");
 }
 
@@ -168,7 +169,7 @@ int main(int argc, char *argv[]) {
   int res;                      /* return values */
   char *filename;               /* filename of input file */
   char *filebname;              /* filebasename of input file (without path) */
-  char *filename_fix;           /* filename of output file */
+  char *filename_fix = NULL;    /* filename of output file */
   uint64_t bytes;		        /* read/written blocks counter */
   uint64_t filesize;	        /* file size of input pcap file in bytes */
 
@@ -176,6 +177,7 @@ int main(int argc, char *argv[]) {
   struct option long_options[] = {
     {"deep-scan", no_argument, 0, 'd'},				        /* --deep-scan == -d */
     {"pcapng", no_argument, 0, 'n'},				        /* --pcapng == -n */
+    {"outfile", required_argument, 0, 'o'},		    /* --outfile == -o */
     {"data-link-type", required_argument, 0, 't'},		    /* --data-link-type == -t */
     {"verbose", no_argument, 0, 'v'},				        /* --verbose == -v */
     {0, 0, 0, 0}
@@ -185,7 +187,7 @@ int main(int argc, char *argv[]) {
   printf("pcapfix %s (c) 2012-2014 Robert Krause\n\n", VERSION);
 
   /* scan for options and arguments */
-  while ((c = getopt_long(argc, argv, ":t:v::d::n::", long_options, &option_index)) != -1) {
+  while ((c = getopt_long(argc, argv, ":t:o:v::d::n::", long_options, &option_index)) != -1) {
     switch (c) {
       case 0:	/* getopt_long options evaluation */
         break;
@@ -194,6 +196,10 @@ int main(int argc, char *argv[]) {
         break;
       case 'n':	/* pcapng format */
         pcapng++;
+        break;
+      case 'o':	/* output file name */
+        filename_fix = malloc(strlen(optarg));
+	strcpy(filename_fix, optarg);
         break;
       case 't':	/* data link type */
         data_link_type = atoi(optarg);
@@ -226,20 +232,24 @@ int main(int argc, char *argv[]) {
     return(-2);
   }
 
-  /* open output file */
-  /* we need to extract the basename first (windows and linux use different functions) */
-  filebname = malloc(strlen(filename));
-  #ifdef __WIN32__
-    _splitpath(filename, NULL, NULL, filebname, NULL);	/* windown method (_splitpath) */
-  # else
-    strcpy(filebname, basename(filename));		/* unix method (basename) */
-  #endif
-  filename_fix = malloc(strlen(filebname)+7);	/* size of outputfile depends on inputfile's length */
+  /* check for preassigned fixed file name */
+  if (filename_fix == NULL) {
 
-  /* prepare output file name: "fixed_" + inputfilename */
-  strcpy(filename_fix, "fixed_");
-  strcat(filename_fix, filebname);
-  free(filebname);
+    /* open output file */
+    /* we need to extract the basename first (windows and linux use different functions) */
+    filebname = malloc(strlen(filename));
+    #ifdef __WIN32__
+      _splitpath(filename, NULL, NULL, filebname, NULL);	/* windown method (_splitpath) */
+    # else
+      strcpy(filebname, basename(filename));		/* unix method (basename) */
+    #endif
+    filename_fix = malloc(strlen(filebname)+7);	/* size of outputfile depends on inputfile's length */
+
+    /* prepare output file name: "fixed_" + inputfilename */
+    strcpy(filename_fix, "fixed_");
+    strcat(filename_fix, filebname);
+    free(filebname);
+  }
 
   /* open the file for writing */
   pcap_fix = fopen(filename_fix, "wb");
