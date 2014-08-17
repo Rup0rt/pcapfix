@@ -527,9 +527,10 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         block_pos += sizeof(spb);
 
         /* calculate padding for packet data */
-        /* TODO: len is NOT the length of packet inside file (origlen != caplen); we need to calculate caplen using block length (left) */
-        padding = spb.len;
-        if (spb.len % 4 != 0) padding += (4 - spb.len % 4);
+        /* spb.len is NOT the length of packet inside file (origlen != caplen); we need to calculate caplen using block length (left) */
+        /* decrease by two to avoid oversize padding */
+        padding = left-2;
+        if (padding % 4 != 0) padding += (4 - left % 4);
 
         /* read packet data from input file */
         data = malloc(padding);
