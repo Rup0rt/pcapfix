@@ -329,6 +329,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
+          /* check oversize */
+          if (-left+padding > 0) {
+            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+            break;
+          }
+
           /* read data of current option */
           data = malloc(padding);
           bytes = fread(data, padding, 1, pcap);
@@ -463,6 +469,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           /* calculate padding for current option value */
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
+
+          /* check oversize */
+          if (-left+padding > 0) {
+            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+            break;
+          }
 
           /* read data of current option */
           data = malloc(padding);
@@ -659,6 +671,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
+          /* check oversize */
+          if (-left+padding > 0) {
+            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+            break;
+          }
+
           /* read option data */
           data = malloc(padding);
           bytes = fread(data, padding, 1, pcap);
@@ -837,6 +855,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
+          /* check oversize */
+          if (-left+padding > 0) {
+            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+            break;
+          }
+
           /* read option value from input file */
           data = malloc(padding);
           bytes = fread(data, padding, 1, pcap);
@@ -963,6 +987,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           /* calculate padding for current option value */
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
+
+          /* check oversize */
+          if (-left+padding > 0) {
+            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+            break;
+          }
 
           /* read option value from input file */
           data = malloc(padding);
@@ -1119,6 +1149,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           /* calculate padding for current option value */
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
+
+          /* check oversize */
+          if (-left+padding > 0) {
+            printf("[-] Option size exceeds block size. ==> SKIPPING OPTION.\n");
+            break;
+          }
 
           /* read option value from input file */
           data = malloc(padding);
