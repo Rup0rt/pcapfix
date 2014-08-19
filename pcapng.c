@@ -408,7 +408,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* check for oversized caplen */
         if (pb.caplen > (unsigned)left) {
-          printf("[-] Capture length (%u) exceeds block size (%" PRId64 ")==> CORRECTED.\n", pb.caplen, left);
+          printf("[-] Capture length (%u) exceeds block size (%" PRId64 ") ==> CORRECTED.\n", pb.caplen, left);
           pb.caplen = left;
         }
 
@@ -1333,6 +1333,8 @@ int find_valid_block(FILE *pcap, uint64_t filesize) {
   unsigned int bytes;
   unsigned int check;                       /* variable to check end of blocks sizes */
   struct block_header bh;
+  struct packet_block pb;                   /* Packet Block */
+  struct name_resolution_block nrb;         /* Name Resolution Block */
 
   /* bytewise processing of input file */
   for (i=ftello(pcap)-4; i<filesize; i++) {
@@ -1349,11 +1351,49 @@ int find_valid_block(FILE *pcap, uint64_t filesize) {
     if (bh.total_length >= 12 && bh.block_type >= TYPE_IDB && bh.block_type <= TYPE_EPB) {
       /* block header might be valid */
 
+      /* perform some block specific checks */
+
+      /* Packet Block Checks:
+       * - interface id <= 1024 */
+      if (bh.block_type == TYPE_PB) {
+        bytes = fread(&pb, sizeof(pb), 1, pcap);
+        if (bytes != 1) return(-1);
+
+        /* interface id check */
+        if (pb.interface_id > 1024) continue;
+      }
+
+      /* Simple Packet Block Checks:
+       * - max size <= 65535 */
+      if (bh.block_type == TYPE_SPB) {
+        /* max size check */
+        if (bh.total_length > 65536) continue;
+      }
+
+      /* Name Resolution Block Checks:
+       * - min size >= 16
+         - record size < block length
+         - record type ipv4,ipv6 or eeo */
+      if (bh.block_type == TYPE_NRB) {
+        bytes = fread(&nrb, sizeof(nrb), 1, pcap);
+        if (bytes != 1) return(-1);
+
+        /* max length check */
+        if (bh.total_length < 16) continue;
+
+        /* record length check */
+        if (nrb.record_length > bh.total_length) continue;
+
+        /* record type check (max is 0x02) */
+        if (nrb.record_type > 0x02) continue;
+      }
+
       /* check if the second size value is valid too */
       fseeko(pcap, i+bh.total_length-4, SEEK_SET);
       bytes = fread(&check, sizeof(check), 1, pcap);
       if (check == bh.total_length) {
         /* also the second block size value is correct! */
+
         if (verbose >= 1) printf("[+] FOUND: Block (Type: 0x%08x) at Position %" PRIu64 "\n", bh.block_type, i);
 
         /* set pointer to next block position */
