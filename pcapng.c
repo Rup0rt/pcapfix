@@ -210,7 +210,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Section Header Block */
       case TYPE_SHB:
-        if (verbose >= 1) printf("[*] FOUND: Section Header Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Section Header Block at position %" PRIu64 " (%u bytes)\n", pos, bh.total_length);
 
         /* read section header block into struct */
         bytes = fread(&shb, sizeof(shb), 1, pcap);
@@ -376,7 +376,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 2) printf("[*] FOUND Packet #%u: Packet Block: 0x%08x (%u bytes)\n", packets, bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND Packet #%u: Packet Block at position %" PRIu64 " (%u bytes)\n", packets, pos, bh.total_length);
 
         /* read packet block into struct */
         bytes = fread(&pb, sizeof(pb), 1, pcap);
@@ -531,7 +531,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 2) printf("[*] FOUND Packet #%u: Simple Packet Block: 0x%08x (%u bytes)\n", packets, bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND Packet #%u: Simple Packet Block at position %" PRIu64 " (%u bytes)\n", packets, pos, bh.total_length);
 
         /* read simple packet block */
         bytes = fread(&spb, sizeof(spb), 1, pcap);
@@ -733,7 +733,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 1) printf("[*] FOUND: Name Resolution Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Name Resolution Block at position %" PRIu64 " (%u bytes)\n", pos, bh.total_length);
 
         /* process records */
         count = 0;
@@ -919,7 +919,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 1) printf("[*] FOUND: Interface Statistics Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Interface Statistics Block at position %" PRIu64 " (%u bytes)\n", pos, bh.total_length);
 
         /* read interface statistics block */
         bytes = fread(&isb, sizeof(isb), 1, pcap);
@@ -1053,7 +1053,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 2) printf("[*] FOUND Packet #%u: Enhanced Packet Block: 0x%08x (%u bytes)\n", packets, bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND Packet #%u: Enhanced Packet Block at position %" PRIu64 " (%u bytes)\n", packets, pos, bh.total_length);
 
         /* read enhanced packet block */
         bytes = fread(&epb, sizeof(epb), 1, pcap);
