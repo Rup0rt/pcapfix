@@ -239,7 +239,10 @@ int main(int argc, char *argv[]) {
     /* we need to extract the basename first (windows and linux use different functions) */
     filebname = malloc(strlen(filename));
     #ifdef __WIN32__
-      _splitpath(filename, NULL, NULL, filebname, NULL);	/* windown method (_splitpath) */
+      char *fileext = malloc(strlen(filename));   /* file extention to be used in output file as well */
+      _splitpath(filename, NULL, NULL, filebname, fileext);	/* windown method (_splitpath) */
+      strcat(filebname, fileext);
+      free(fileext);
     # else
       strcpy(filebname, basename(filename));		/* unix method (basename) */
     #endif
