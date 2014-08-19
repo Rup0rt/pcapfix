@@ -317,6 +317,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
     /* read the next packet header */
     bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
+    if (bytes != 1) return -3;
 
     /* check if the packet header looks proper */
     res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &packet_hdr);
