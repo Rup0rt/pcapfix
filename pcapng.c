@@ -357,9 +357,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       case TYPE_PB:
 	packets++;
 
-	/* check for oversized packet */
-        if (-left+sizeof(pb) > 0) {
-          printf("[-] Packet #%u exceeds size of block header (%" PRId64 ") ==> SKIPPING\n", packets, left);
+        /* check oversize */
+        if (sizeof(pb) > (unsigned)left) {
+          printf("[-] Packet #%u exceeds size of block header (%" PRIu64 " > %" PRId64 ") ==> SKIPPING.\n", packets, sizeof(pb), left);
           /* set to "invalid block" */
           bh.block_type = -1;
           break;
@@ -407,8 +407,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         block_pos += sizeof(pb);
 
         /* check for oversized caplen */
-        if (-left+pb.caplen > 0) {
-          printf("[-] Capture length (%u) exceeds block size ==> CORRECTED.\n", pb.caplen);
+        if (pb.caplen > (unsigned)left) {
+          printf("[-] Capture length (%u) exceeds block size (%" PRId64 ")==> CORRECTED.\n", pb.caplen, left);
           pb.caplen = left;
         }
 
@@ -1304,7 +1304,6 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
     /* set positon of next block */
     pos = ftello(pcap);
-
   }
 
   /* FILE HAS BEEN COMPLETELY CHECKED */
