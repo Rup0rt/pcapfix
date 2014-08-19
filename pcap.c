@@ -262,6 +262,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   if (data_link_type != -1) {
     printf("[+] Changing data link type to %d.\n", data_link_type);
     global_hdr.network = conint(data_link_type);
+    hdr_integ++;
   }
 
   /* evaluate the integrity of the global header */
