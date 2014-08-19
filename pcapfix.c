@@ -356,6 +356,7 @@ int main(int argc, char *argv[]) {
 
     /* classic PCAP format */
     case PCAP_MAGIC:
+    case PCAP_MAGIC_SWAPPED:
       printf("[+] This is a PCAP file.\n");
       if (pcapng > 0) {
         printf("[!] Your wish is my command! I will handle it as PCAPNG nevertheless.\n");
@@ -368,10 +369,10 @@ int main(int argc, char *argv[]) {
     /* if the file type is unknown (maybe header corrupted) assume classic PCAP format */
     default:
       if (pcapng > 0) {
-        printf("[*] Unknown filetype. Assuming PCAPNG format.\n");
+        printf("[*] Unknown file type. Assuming PCAPNG format.\n");
         res = fix_pcapng(pcap, pcap_fix);
       } else {
-        printf("[*] Unknown filetype. Assuming PCAP format.\n");
+        printf("[*] Unknown file type. Assuming PCAP format.\n");
         res = fix_pcap(pcap, pcap_fix);
       }
       break;

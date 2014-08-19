@@ -21,6 +21,7 @@
 #define PF_PCAP
 
 #define PCAP_MAGIC 0xa1b2c3d4			/* the magic of the pcap global header (non swapped) */
+#define PCAP_MAGIC_SWAPPED 0xd4c3b2a1           /* the magic of the pcap global header (swapped) */
 #define PCAPNG_MAGIC 0x0a0d0d0a			/* the magic of the pcap global header (non swapped) */
 #define PCAP_NSEC_MAGIC 0xa1b23c4d	    /* the magic of the pcap global header (nanoseconds - non swapped) */
 
