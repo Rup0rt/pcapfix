@@ -46,6 +46,7 @@
 
 #define VERSION "1.0.3-devel"			    /* pcapfix version */
 
+#define BTSNOOP_MAGIC 0x6E737462    /* btsnoop file magic (first 4 bytes) */
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
 #define NETMON_MAGIC 0x55424d47     /* netmon file magic */
 #define NETMON11_MAGIC 0x53535452   /* netmon 1.1 file magic */
@@ -325,6 +326,18 @@ int main(int argc, char *argv[]) {
     /* SNOOP file format --> often used with pcapfix but NOT supported (yet) */
     case SNOOP_MAGIC:
       printf("[-] This is a SNOOP file, which is not supported.\n\n");
+
+      /* close input and output files */
+      fclose(pcap);
+      fclose(pcap_fix);
+
+      /* delete output file due to no changes failure */
+      remove(filename_fix);
+
+      return(-6);
+
+    case BTSNOOP_MAGIC:
+      printf("[-] This is a BTSNOOP file, which is not supported.\n\n");
 
       /* close input and output files */
       fclose(pcap);
