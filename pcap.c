@@ -170,6 +170,12 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
   /* BEGIN GLOBAL HEADER CHECK */
 
+  /* check space of pcap global header */
+  if (filesize < sizeof(global_hdr)) {
+    printf("[-] File is too small to read pcap global header.\n");
+    return(-2);
+  }
+
   printf("[*] Analyzing Global Header...\n");
   bytes = fread(&global_hdr, sizeof(global_hdr), 1, pcap);	/* read first bytes of input file into struct */
   if (bytes != 1) return -3;
