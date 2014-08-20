@@ -539,7 +539,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
                 packet_hdr.ts_usec = conint(0);
               }
             } else { /* ALL packets except the first one will use the last correct packets timestamps */
-              packet_hdr.ts_sec = last_correct_ts_sec;
+              packet_hdr.ts_sec = conint(last_correct_ts_sec);
               packet_hdr.ts_usec = conint(last_correct_ts_usec+1);
             }
 
@@ -552,8 +552,8 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
             bytes = fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	/* write packet body to output file */
 
             /* remember that this packets timestamp to evaluate futher timestamps */
-            last_correct_ts_sec = packet_hdr.ts_sec;
-            last_correct_ts_usec = packet_hdr.ts_usec;
+            last_correct_ts_sec = conint(packet_hdr.ts_sec);
+            last_correct_ts_usec = conint(packet_hdr.ts_usec);
 
             /* print out information */
             printf("[+] CORRECTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
