@@ -318,8 +318,12 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
     /* check if a pcap packet header would fit into the file */
     if (pos + sizeof(hdrbuffer) > filesize) {
-      if (verbose >= 1) printf("[-] Not enough bytes left to read pcap packet header from!\n");
-      return(-2);
+      if (verbose >= 1) printf("[-] Not enough bytes left in file ==> SKIPPING %" PRIu64 " bytes.\n", filesize-pos);
+      corrupted++;
+
+      /* end of file reached */
+      pos = filesize;
+      break;
     }
 
     /* read the next packet header */
