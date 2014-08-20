@@ -1285,8 +1285,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (verbose >= 1) printf("[*] Trying to align next block...\n");
         res = find_valid_block(pcap, filesize);
 
-        /* output information about skipped bytes */
-        printf("[-] Found %" PRId64 " bytes of unknown data ==> SKIPPING.\n", ftello(pcap)-bytes);
+        /* output information about overlapped/skipped bytes */
+        if (ftello(pcap) > (unsigned)bytes) printf("[-] Found %" PRId64 " bytes of unknown data ==> SKIPPING.\n", ftello(pcap)-bytes);
+        else printf("[-] Packet overlapps with %" PRId64 " bytes ==> CORRECTED.\n", bytes-ftello(pcap));
 
         /* increase corruption counter */
         fixes++;
