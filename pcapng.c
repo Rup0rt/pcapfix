@@ -263,7 +263,6 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         /* options */
         count = 0 ;
         while (left > 0) {
-
           /* read option header into struct */
           bytes = fread(&oh, sizeof(oh), 1, pcap);
           if (bytes != 1) return -3;
@@ -318,23 +317,39 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* option is valid */
 
-          /* copy option header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
-
-          /* end of options? -> do not write any further */
-          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
-
           /* calculate padding for current option value */
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
-            break;
+
+            /* because this block oversizes, there should not be any further option */
+
+            /* is this the first option we check? */
+            if (count == 0) {
+              /* there are NO options inside this block; skipping EOO option */
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            /* there have been other options before this corruption, we need EOO option */
+
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            /* adjust option header to end of options */
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
           }
+
+          /* copy option header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
+
+          /* end of options? -> do not write any further */
+          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           /* read data of current option */
           data = malloc(padding);
@@ -482,23 +497,39 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* option is valid */
 
-          /* copy options header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
-
-          /* end of options? -> do not write any further */
-          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
-
           /* calculate padding for current option value */
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
-            break;
+
+            /* because this block oversizes, there should not be any further option */
+
+            /* is this the first option we check? */
+            if (count == 0) {
+              /* there are NO options inside this block; skipping EOO option */
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            /* there have been other options before this corruption, we need EOO option */
+
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            /* adjust option header to end of options */
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
           }
+
+          /* copy options header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
+
+          /* end of options? -> do not write any further */
+          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           /* read data of current option */
           data = malloc(padding);
@@ -685,23 +716,39 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* option is valid */
 
-          /* copy options header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
-
-          /* end of options? -> do not write any further*/
-          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
-
           /* calculate padding for current option value */
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
-            break;
+
+            /* because this block oversizes, there should not be any further option */
+
+            /* is this the first option we check? */
+            if (count == 0) {
+              /* there are NO options inside this block; skipping EOO option */
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            /* there have been other options before this corruption, we need EOO option */
+
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            /* adjust option header to end of options */
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
           }
+
+          /* copy options header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
+
+          /* end of options? -> do not write any further*/
+          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           /* read option data */
           data = malloc(padding);
@@ -870,23 +917,39 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* option is valid */
 
-          /* copy option header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
-
-          /* end of options? -> do not write any further */
-          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
-
           /* calculate padding for current option value */
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
-            break;
+
+            /* because this block oversizes, there should not be any further option */
+
+            /* is this the first option we check? */
+            if (count == 0) {
+              /* there are NO options inside this block; skipping EOO option */
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            /* there have been other options before this corruption, we need EOO option */
+
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            /* adjust option header to end of options */
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
           }
+
+          /* copy option header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
+
+          /* end of options? -> do not write any further */
+          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           /* read option value from input file */
           data = malloc(padding);
@@ -1004,23 +1067,39 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* option is valid */
 
-          /* copy options header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
-
-          /* end of options? -> do not write any further */
-          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
-
           /* calculate padding for current option value */
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
-            break;
+
+            /* because this block oversizes, there should not be any further option */
+
+            /* is this the first option we check? */
+            if (count == 0) {
+              /* there are NO options inside this block; skipping EOO option */
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            /* there have been other options before this corruption, we need EOO option */
+
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            /* adjust option header to end of options */
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
           }
+
+          /* copy options header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
+
+          /* end of options? -> do not write any further */
+          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           /* read option value from input file */
           data = malloc(padding);
@@ -1179,23 +1258,39 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* option is valid */
 
-          /* copy option header into repaired block */
-          memcpy(new_block+block_pos, &oh, sizeof(oh));
-          block_pos += sizeof(oh);
-
-          /* end of options? -> do not write any further */
-          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
-
           /* calculate padding for current option value */
           padding = oh.option_length;
           if (oh.option_length%4 != 0) padding += (4-oh.option_length%4);
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds block size (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
-            break;
+
+            /* because this block oversizes, there should not be any further option */
+
+            /* is this the first option we check? */
+            if (count == 0) {
+              /* there are NO options inside this block; skipping EOO option */
+              if (verbose >= 1) printf("[*] No Options inside -> no need for End of Options...\n");
+              break;
+            }
+
+            /* there have been other options before this corruption, we need EOO option */
+
+            if (verbose >= 1) printf("[*] %u Options inside -> Finishing with End of Options...\n", count);
+
+            /* adjust option header to end of options */
+            oh.option_code = 0x00;
+            oh.option_length = 0x00;
           }
+
+          /* copy option header into repaired block */
+          memcpy(new_block+block_pos, &oh, sizeof(oh));
+          block_pos += sizeof(oh);
+
+          /* end of options? -> do not write any further */
+          if (oh.option_code == 0x00 && oh.option_length == 0x00) break;
 
           /* read option value from input file */
           data = malloc(padding);
@@ -1305,6 +1400,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
     /* set positon of next block */
     pos = ftello(pcap);
+
   }
 
   /* FILE HAS BEEN COMPLETELY CHECKED */
