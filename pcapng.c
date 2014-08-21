@@ -607,7 +607,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 1) printf("[*] FOUND: Interface Description Block: 0x%08x (%u bytes)\n", bh.block_type, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Interface Description Block (%u bytes)\n", bh.total_length);
 
         /* read interface description block */
         bytes = fread(&idb, sizeof(idb), 1, pcap);	/* read first bytes of input file into struct */

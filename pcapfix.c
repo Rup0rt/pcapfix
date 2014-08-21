@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
 
     /* open output file */
     /* we need to extract the basename first (windows and linux use different functions) */
-    filebname = malloc(strlen(filename));
+    filebname = malloc(strlen(filename)+1);
     #ifdef __WIN32__
       char *fileext = malloc(strlen(filename));   /* file extention to be used in output file as well */
       _splitpath(filename, NULL, NULL, filebname, fileext);	/* windown method (_splitpath) */
