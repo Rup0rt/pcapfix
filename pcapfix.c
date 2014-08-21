@@ -348,6 +348,20 @@ int main(int argc, char *argv[]) {
 
       return(-6);
 
+    case PCAP_EXT_MAGIC:
+    case PCAP_EXT_MAGIC_SWAPPED:
+      printf("[-] This is an extended tcpdump file, which is not supported, *YET*!\n");
+      printf("[*] If you need really need this filetype to be supported write a brief email to ruport@f00l.de\n\n");
+
+      /* close input and output files */
+      fclose(pcap);
+      fclose(pcap_fix);
+
+      /* delete output file due to no changes failure */
+      remove(filename_fix);
+
+      return(-6);
+
     /* PCAPNG format */
     case PCAPNG_MAGIC:
       printf("[+] This is a PCAPNG file.\n");
