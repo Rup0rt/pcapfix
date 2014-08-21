@@ -93,7 +93,10 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
 
   /* does the buffer already contain a valid packet header (without any correction) ?? */
   memcpy(hdr, buffer, sizeof(struct packet_hdr_s));
-  if (is_plausible(*hdr, prior_ts) == 0) return(0);
+  res = is_plausible(*hdr, prior_ts);
+  if (res == 0) return(0);
+
+  if (verbose >= 2) printf("[-] Header plausibility check failed with error code %d\n", res);
 
   /* we need to abort the recursion of there are too many possible ascii corrupted bytes at ones */
   /* 32-25 = 7 bytes maximum in 32bytes of data! */
@@ -529,6 +532,8 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
             /* correct the corrupted pcap packet header to match the just found next packet header */
             packet_hdr.incl_len = conint(nextpos-(pos+16));
             packet_hdr.orig_len = packet_hdr.incl_len;
+
+printf("GOT: %u\n", packet_hdr.incl_len);
 
             if (count == 1) { /* time correction for the FIRST packet */
               if (conint(next_packet_hdr.ts_usec) > 0) {
