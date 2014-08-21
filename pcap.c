@@ -533,8 +533,6 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
             packet_hdr.incl_len = conint(nextpos-(pos+16));
             packet_hdr.orig_len = packet_hdr.incl_len;
 
-printf("GOT: %u\n", packet_hdr.incl_len);
-
             if (count == 1) { /* time correction for the FIRST packet */
               if (conint(next_packet_hdr.ts_usec) > 0) {
                 /* next packets usec is > 0 ===> first packet will get same timestamp and usec - 1 */
@@ -558,16 +556,25 @@ printf("GOT: %u\n", packet_hdr.incl_len);
             fseeko(pcap, pos+16, SEEK_SET);
             bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
-            /* write repaired packet header and packet body */
-            bytes = fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	/* write packet header to output file */
-            bytes = fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	/* write packet body to output file */
+            /* final check resulting packet for plausibility */
+            res = is_plausible(packet_hdr, last_correct_ts_sec);
+            if (res == 0) {
 
-            /* remember that this packets timestamp to evaluate futher timestamps */
-            last_correct_ts_sec = conint(packet_hdr.ts_sec);
-            last_correct_ts_usec = conint(packet_hdr.ts_usec);
+              /* write repaired packet header and packet body */
+              bytes = fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	/* write packet header to output file */
+              bytes = fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	/* write packet body to output file */
 
-            /* print out information */
-            printf("[+] CORRECTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+              /* remember that this packets timestamp to evaluate futher timestamps */
+              last_correct_ts_sec = conint(packet_hdr.ts_sec);
+              last_correct_ts_usec = conint(packet_hdr.ts_usec);
+
+              /* print out information */
+              printf("[+] CORRECTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+
+            } else {
+              /* prior packet is invalid */
+              printf("[-] Packet #%u at position %" PRIu64 " is invalid ==> SKIPPING.\n", count, pos);
+            }
 
           }
 
