@@ -1,9 +1,17 @@
 pcapfix Changelog
 *****************
 
-* ebp size check
-* packet counter
-* eof check
+1.0.3 - 22.08.2014
+------------------
+* added checks for valid pcapng format (epb)
+* added --outfile parameter to chose fixed file name
+* improved pcapng packet alignment (pb, spb, nrb)
+* improved pcapng option fields handling
+* improved status and verbosity outputs
+* fixed reparation bugs with swapped pcap files
+* fixed MacOS compile problem
+* fixed windows output file name extension missing
+* fixed many minor bugs
 
 1.0.2 - 18.02.2014
 ------------------

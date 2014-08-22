@@ -12,16 +12,16 @@ file, below the global header. It checks if the values are correct (or seem
 to be correct) and tries to repair a packet if there is something wrong. 
 
 To fix your pcapng files the tool loops through all packet headers that can
-be found in the file. It checks for mandatory Section Header and Interface
-Description Block and creates them if missing. Pcapfix checks for correct
-block sizes and valid option fields. If something is wrong, invalid fields
-are repaired (if possible) or skipped and adjusted to finally get a proper
-pcapng file.
+be found in the file. It checks for mandatory Section Header Block and
+Interface Description Block and creates them if missing. Pcapfix checks for
+correct block sizes and valid option fields. If something is wrong, invalid
+fields are repaired (if possible) or skipped and adjusted to finally get a
+proper pcapng file.
 
-This tool is still under development! Please send any further wishes, feature
-requests or problems in compiling and execution to ruport@f00l.de. Additionally
-You may send me pcap/pcapng files that could not be repaired too in order to
-improve pcapfix and get your file repaired.
+Please send any further wishes, feature requests or problems in compiling
+and execution to ruport@f00l.de. Additionally You may send me pcap/pcapng
+files that could not be repaired too in order to improve pcapfix and get
+your file repaired.
 
 For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 
@@ -29,10 +29,11 @@ USAGE
 =====
 
 ./pcapfix [OPTIONS] filename
-OPTIONS:        -d      , --deep-scan 	  		Deep Scan (default = 0) (pcap only!)
-                -n      , --pcapng 	  		Force File Format to PCAPNG
-                -t <nr> , --data-link-type <nr>		Data Link Type (default = 1)
-                -v      , --verbose 	  		Verbose output (default = 0)
+OPTIONS:        -d        , --deep-scan 	  	Deep Scan (default = 0) (pcap only!)
+                -n        , --pcapng 	  		Force File Format to PCAPNG
+		-o <file> , --outfile <file>		Set output file name
+                -t <nr>	  , --data-link-type <nr>	Data Link Type (default = 1)
+                -v        , --verbose 	  		Verbose output (default = 0)
 
 
 Deep Scan Option

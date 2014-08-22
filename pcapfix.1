@@ -1,10 +1,10 @@
-.TH PCAPFIX 1 "18 FEB 2014"
+.TH PCAPFIX 1 "22 AUG 2014"
 
 .SH "NAME"
 pcapfix \- repair pcap and pcapng files
 
 .SH "SYNOPSIS"
-\fBpcapfix\fP [\-d] [\-n] [\-t DATA_LINK_TYPE] [\-v] filename
+\fBpcapfix\fP [\-d] [\-n] [\-o filename] [\-t DATA_LINK_TYPE] [\-v] filename
 
 .SH "DESCRIPTION"
 Pcapfix is a tool to repair your damaged or corrupted pcap and pcapng files. It is written in C and released under the GNU General Public License.
@@ -25,22 +25,28 @@ Force File Format to PCAPNG (default = 0)
 .br
 This option will force pcapfix to repair the input file as it were in pcapng format (useful for destroyed file headers).
 .TP
+\-o, \-\-outfile <filename>
+Set the output file name. Default will be input file prepended by "fixed_".
+.TP
+\-t, \-\-data\-link\-type <nr>
+Data Link Type (default = 1)
+.br
+(See NOTES section below.)
+.TP
 \-v, \-\-verbose
 Enable verbose output (default = 0)
 .br
 You can use multiple \-v options to increase verbosity.
 .br
 An verbosity of 2 will result in very much output data during package search.
-.TP
-\-t, \-\-data\-link\-type <nr>
-Data Link Type (default = 1)
-.br
-(See NOTES section below.)
 
 .SH "EXAMPLES"
 .TP 5
-Repair the file damaged_file.pcap using verbose output.
-pcapfix \-v damaged_file.pcap
+Repair the pcap file using deep scan mode, because large blocks of the file are corrupted.
+pcapfix \-d file.pcap
+.TP
+Repair the file damaged_file.pcapng using verbose output.
+pcapfix \-v damaged_file.pcapng
 .TP
 Repair the file wlan_traffic.pcap and force the data link type to be 119 (PRISM HEADER).
 pcapfix \-t 119 wlan_traffic.pcap
@@ -248,6 +254,25 @@ For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 
 .SH "HISTORY"
 .TP 5
+1.0.3 - 22.08.2013
+* added checks for valid pcapng format (epb)
+.br
+* added --outfile parameter to chose fixed file name
+.br
+* improved pcapng packet alignment (pb, spb, nrb)
+.br
+* improved pcapng option fields handling
+.br
+* improved status and verbosity outputs
+.br
+* fixed reparation bugs with swapped pcap files
+.br
+* fixed MacOS compile problem
+.br
+* fixed windows output file name extension missing
+.br
+* fixed many minor bugs
+.TP
 1.0.2 - 18.02.2013
 * added support for files larger than 2GB on 32bit systems
 .TP

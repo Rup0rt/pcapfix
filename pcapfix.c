@@ -15,28 +15,28 @@
  * You should have received a copy of the GNU General Public License along with
  * Pcapfix. If not, see http://www.gnu.org/licenses/.
  *
- * Last Modified: 17.08.2014
+ * Last Modified: 22.08.2014
  *
  *******************************************************************************
  *
  * Description:
  *
- * pcapfix is a repair tool for corrupted pcap/pcapng files. Depending on the
- * format, it ...
+ * Pcapfix is a tool to repair your damaged or corrupted pcap and pcapng files.
+ * It is written in C and released under the GNU General Public License.
  *
- * (pcap format) ...checks for an intact pcap global header and repairs it if
- * there are any corrupted bytes (pcap format). If one is not present, one is
- * created and added to the beginning of the file. It then tries to find pcap
- * packet headers, and checks and repairs them. pcapfix will first step through
- * the packets top down until it recognizes a corrupted one by using plausibility
- * checks. After that the tool will brute force further pcap packet headers by
- * reading the file byte by byte. If another proper packet is found, pcapfix
- * restores the data in between by adding a well-formed pcap packet header.
+ * To fix your pcap files the tool first checks for an intact pcap global header
+ * and repairs it if there are some corrupted bytes. It there seems to be no
+ * global header at all, pcapfix adds a self-created one at the beginning of the
+ * file. In a second step the tool tries to find pcap packet headers inside the
+ * file, below the global header. It checks if the values are correct (or seem
+ * to be correct) and tries to repair a packet if there is something wrong. 
  *
- * (pcapng format) ...loops the block heades one by one checking for section
- * header block and interface description block and creates one if missing. It
- * progresses all blocks checking the options / records, skips invalid ones
- * and aligns next header if there is any corruption.
+ * To fix your pcapng files the tool loops through all packet headers that can
+ * be found in the file. It checks for mandatory Section Header Block and
+ * Interface Description Block and creates them if missing. Pcapfix checks for
+ * correct block sizes and valid option fields. If something is wrong, invalid
+ * fields are repaired (if possible) or skipped and adjusted to finally get a
+ * proper pcapng file.
  *
  ******************************************************************************/
 
@@ -44,7 +44,7 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.0.3-devel"			    /* pcapfix version */
+#define VERSION "1.0.3"			    /* pcapfix version */
 
 #define BTSNOOP_MAGIC 0x6E737462    /* btsnoop file magic (first 4 bytes) */
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */

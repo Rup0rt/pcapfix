@@ -27,6 +27,15 @@ To uninstall pcapfix just enter:
 	make uninstall
 
 
+Microsoft Windows
+=================
+
+Compile pcapfix using cygwin:
+	gcc -c pcap.c -o pcap.o
+	gcc -c pcapng.c -o pcapng.o
+	gcc pcapfix.c pcap.o pcapng.o -l ws2_32 -o pcapfix.exe
+
+
 Troubleshooting
 ===============
 
