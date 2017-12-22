@@ -152,6 +152,11 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   char hdrbuffer[sizeof(packet_hdr)*2];		  /* the buffer that will be used to find a proper packet */
   char buffer[65535];				          /* the packet body */
 
+  // we use a buffer to cache 1mb of writing... this way writing is faster and
+  // we can read and write the file at the same time
+  char *writebuffer;
+  unsigned int writepos = 0;
+
   uint64_t pos = 0;			                  /* position of current packet header */
   uint64_t nextpos = 0;			              /* possible position of next packets header */
   uint64_t bytes;				              /* read/written bytes counter (unused yet) */
@@ -165,6 +170,9 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   int ascii = 0;				              /* ascii counter for possible ascii-corrupted packets */
   int corrupted = 0;				          /* corrupted packet counter for final output */
   int res;					                  /* the result of the header check == the offset of body shifting */
+
+  /* init write buffer */
+  writebuffer = malloc(1024000);
 
   /* get size of input file */
   fseeko(pcap, 0, SEEK_END);
@@ -297,7 +305,8 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   }
 
   /* write the (maybe changed) global header to output file */
-  bytes = fwrite(&global_hdr, sizeof(global_hdr), 1, pcap_fix);
+  memcpy(writebuffer, &global_hdr, sizeof(global_hdr));
+  writepos += sizeof(global_hdr);
 
   /* END OF GLOBAL HEADER CHECK */
 
@@ -438,9 +447,21 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
       /* we found a correct packet (and aligned it maybe) */
       if (verbose >= 1) printf("[+] Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
-      /* write last packet */
-      bytes = fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	      /* write packet header to output file */
-      bytes = fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	/* write packet body to output file */
+      /* write this packet */
+
+      // check if there is enough space in buffer
+      int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
+      if (writepos+totalsize > 1024000) {
+        printf("WRITING BUFFER...");
+        bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+        writepos = 0;
+      }
+
+      // put new bytes into write buffer
+      memcpy(writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
+      writepos += sizeof(packet_hdr);
+      memcpy(writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
+      writepos += conint(packet_hdr.incl_len);
 
       /* remember that this packets timestamp to evaluate futher timestamps */
       last_correct_ts_sec = conint(packet_hdr.ts_sec);
@@ -488,9 +509,19 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
           fseeko(pcap, pos+16, SEEK_SET);
           bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
-          /* write repaired packet header and packet body */
-          bytes = fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	/* write packet header to output file */
-          bytes = fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	/* write packet body to output file */
+          // check if there is enough space in buffer
+          int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
+          if (writepos+totalsize > 1024000) {
+            printf("WRITING BUFFER...");
+            bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+            writepos = 0;
+          }
+
+          // put new bytes into write buffer
+          memcpy(writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
+          writepos += sizeof(packet_hdr);
+          memcpy(writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
+          writepos += conint(packet_hdr.incl_len);
 
           /* remember that this packets timestamp to evaluate futher timestamps */
           last_correct_ts_sec = packet_hdr.ts_sec;
@@ -560,9 +591,19 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
             res = is_plausible(packet_hdr, last_correct_ts_sec);
             if (res == 0) {
 
-              /* write repaired packet header and packet body */
-              bytes = fwrite(&packet_hdr, sizeof(packet_hdr), 1, pcap_fix);	/* write packet header to output file */
-              bytes = fwrite(&buffer, conint(packet_hdr.incl_len), 1, pcap_fix);	/* write packet body to output file */
+              // check if there is enough space in buffer
+              int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
+              if (writepos+totalsize > 1024000) {
+                printf("WRITING BUFFER...");
+                bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+                writepos = 0;
+              }
+
+              // put new bytes into write buffer
+              memcpy(writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
+              writepos += sizeof(packet_hdr);
+              memcpy(writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
+              writepos += conint(packet_hdr.incl_len);
 
               /* remember that this packets timestamp to evaluate futher timestamps */
               last_correct_ts_sec = conint(packet_hdr.ts_sec);
@@ -614,6 +655,11 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
   }
 
+  // write remaining data into buffer
+  printf("WRITING BUFFER...");
+  bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+  writepos = 0;
+
   if (verbose == 0) { print_progress(pos, filesize); }
 
   /* did we reach the end of pcap file? */
@@ -626,7 +672,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
   /* EVALUATE RESULT */
 
-	if ((hdr_integ == 0) && (corrupted == 0)) { /* check allover failure / integrity count and corrupted counter */
+  if ((hdr_integ == 0) && (corrupted == 0)) { /* check allover failure / integrity count and corrupted counter */
 
    /* no errors (header + packets correct) */
    return(0);

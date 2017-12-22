@@ -256,7 +256,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* open the file for writing */
-  pcap_fix = fopen(filename_fix, "wb");
+  pcap_fix = fopen(filename_fix, "rb+");
   if (!pcap_fix) {
     perror("[-] Cannot open output file for writing");
     return(-3);
@@ -466,6 +466,12 @@ int main(int argc, char *argv[]) {
 
   if (res > 0) {
     /* Successful repaired! (res > 0) */
+
+    fclose(pcap);
+    int finalpos = ftello(pcap_fix);
+    fclose(pcap_fix);
+    int res = truncate(filename_fix, finalpos);
+    printf("RES: %d\n", res);
 
     printf("[+] SUCCESS: %d Corruption(s) fixed!\n\n", res);
     return(1);
