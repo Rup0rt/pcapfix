@@ -113,6 +113,11 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   char *data;                               /* Storage for packet data */
   char *new_block;                          /* Storage for new (maybe repaired) block to finally write into ouput file */
 
+  // we use a buffer to cache 1mb of writing... this way writing is faster and
+  // we can read and write the file at the same time
+  char *writebuffer;
+  uint64_t writepos = 0;
+
   uint64_t bytes;                           /* written bytes/blocks counter */
   uint64_t padding;                         /* calculation for padding bytes */
   uint64_t pos;                             /* current block position in input file */
@@ -128,6 +133,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   int64_t left;                             /* bytes left to proceed until current blocks end is reached */
   int fixes;                                /* corruptions counter */
   int res;                                  /* return values */
+
+  /* init write buffer */
+  writebuffer = malloc(1024000);
 
   /* get file size of input file */
   fseeko(pcap, 0, SEEK_END);
@@ -384,7 +392,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
-          write_shb(pcap_fix);
+          write_shb(pcap_fix, writebuffer, &writepos);
 
           /* increase counters */
           shb_num++;
@@ -410,7 +418,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         while (pb.interface_id >= idb_num) {
           /* no IDB is identifying this packet, we need to create one - until the ID has been reached */
           printf("[-] Missing IDB for Interface #%u ==> CREATING (#%u).\n", pb.interface_id, idb_num);
-          write_idb(pcap_fix);
+          write_idb(pcap_fix, writebuffer, &writepos);
 
           /* increase counters */
           idb_num++;
@@ -555,7 +563,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
-          write_shb(pcap_fix);
+          write_shb(pcap_fix, writebuffer, &writepos);
 
           /* increase counters */
           shb_num++;
@@ -600,7 +608,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
-          write_shb(pcap_fix);
+          write_shb(pcap_fix, writebuffer, &writepos);
 
           /* increase counters */
           shb_num++;
@@ -773,7 +781,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
-          write_shb(pcap_fix);
+          write_shb(pcap_fix, writebuffer, &writepos);
 
           /* increase counters */
           shb_num++;
@@ -975,7 +983,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
-          write_shb(pcap_fix);
+          write_shb(pcap_fix, writebuffer, &writepos);
 
           /* increase counters */
           shb_num++;
@@ -1125,7 +1133,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (shb_num == 0) {
           /* no SBH before this packet, we NEED to create one */
           printf("[-] No Section Block header found ==> CREATING.\n");
-          write_shb(pcap_fix);
+          write_shb(pcap_fix, writebuffer, &writepos);
 
           /* increase counters */
           shb_num++;
@@ -1151,7 +1159,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         while (epb.interface_id >= idb_num) {
           /* no IDB identifying this packet, we need to create one - until the ID is reached */
           printf("[-] Missing IDB for Interface #%u ==> CREATING (#%u).\n", epb.interface_id, idb_num);
-          write_idb(pcap_fix);
+          write_idb(pcap_fix, writebuffer, &writepos);
 
           /* increase counters */
           idb_num++;
@@ -1338,8 +1346,18 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       }
 
       /* write repaired block into output file */
-      if (verbose >= 2) printf("[*] Writing block to file (%u bytes).\n", block_pos);
-      bytes = fwrite(new_block, block_pos, 1, pcap_fix);
+      if (verbose >= 2) printf("[*] Writing block to buffer (%u bytes).\n", block_pos);
+
+      // do we need to write the buffer to the file?
+      if (writepos + block_pos > 1024000) {
+        bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+        writepos = 0;
+      }
+
+      // put new bytes into write buffer
+      memcpy(writebuffer+writepos, new_block, block_pos);
+      writepos += block_pos;
+
       free(new_block);
 
       /* increate SHB / IDB counters */
@@ -1402,6 +1420,10 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     pos = ftello(pcap);
 
   }
+
+  // write remaining data into buffer
+  bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+  writepos = 0;
 
   /* FILE HAS BEEN COMPLETELY CHECKED */
 
@@ -1516,7 +1538,7 @@ int find_valid_block(FILE *pcap, uint64_t filesize) {
  *          -1   error (cannot write to output file)
  *
  */
-int write_shb(FILE *pcap_fix) {
+int write_shb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos) {
   struct block_header bh;           /* block header */
   struct section_header_block shb;  /* section header block */
   struct option_header oh;          /* options header */
@@ -1583,9 +1605,18 @@ int write_shb(FILE *pcap_fix) {
   /* store second block_length field into buffer */
   memcpy(data+sizeof(bh)+sizeof(shb)+sizeof(oh)+padding+4, &size, sizeof(size));
 
-  /* write whole buffer (new SHB) into output file */
-  bytes = fwrite(data, size, 1, pcap_fix);
-  if (bytes != 1) return(-1);
+  /* write whole buffer (new SHB) into buffer */
+
+  // check if there is enough space in buffer
+  if (*writepos + size > 1024000) {
+    bytes = fwrite(writebuffer, *writepos, 1, pcap_fix);
+    if (bytes != 1) return(-1);
+    *writepos = 0;
+  }
+
+  // put new bytes into write buffer
+  memcpy(writebuffer+(*writepos), data, size);
+  *writepos += size;
 
   /* clean up memory */
   free(data);
@@ -1606,7 +1637,7 @@ int write_shb(FILE *pcap_fix) {
  *          -1   error (cannot write to output file)
  *
  */
-int write_idb(FILE *pcap_fix) {
+int write_idb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos) {
   struct block_header bh;                   /* block header */
   struct interface_description_block idb;   /* interface description block */
   struct option_header oh;                  /* options header */
@@ -1684,8 +1715,17 @@ int write_idb(FILE *pcap_fix) {
   memcpy(data+sizeof(bh)+sizeof(idb)+sizeof(oh)+padding+4, &size, sizeof(size));
 
   /* write whole buffer (new SHB) into output file */
-  bytes = fwrite(data, size, 1, pcap_fix);
-  if (bytes != 1) return(-1);
+
+  // check if there is enough space in buffer
+  if (*writepos + size > 1024000) {
+    bytes = fwrite(writebuffer, *writepos, 1, pcap_fix);
+    if (bytes != 1) return(-1);
+    *writepos = 0;
+  }
+
+  // put new bytes into write buffer
+  memcpy(writebuffer+(*writepos), data, size);
+  *writepos += size;
 
   /* clean up memory */
   free(data);

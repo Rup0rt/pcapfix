@@ -76,7 +76,7 @@ int find_valid_block(FILE *pcap, uint64_t filesize);
  *          -1   error (cannot write to output file)
  *
  */
-int write_shb(FILE *pcap_fix);
+int write_shb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos);
 
 /*
  * Function:  write_idb
@@ -90,6 +90,6 @@ int write_shb(FILE *pcap_fix);
  *          -1   error (cannot write to output file)
  *
  */
-int write_idb(FILE *pcap_fix);
+int write_idb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos);
 
 #endif

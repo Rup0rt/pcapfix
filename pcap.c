@@ -155,7 +155,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   // we use a buffer to cache 1mb of writing... this way writing is faster and
   // we can read and write the file at the same time
   char *writebuffer;
-  unsigned int writepos = 0;
+  uint64_t writepos = 0;
 
   uint64_t pos = 0;			                  /* position of current packet header */
   uint64_t nextpos = 0;			              /* possible position of next packets header */
@@ -452,7 +452,6 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
       // check if there is enough space in buffer
       int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
       if (writepos+totalsize > 1024000) {
-        printf("WRITING BUFFER...");
         bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
         writepos = 0;
       }
@@ -512,7 +511,6 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
           // check if there is enough space in buffer
           int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
           if (writepos+totalsize > 1024000) {
-            printf("WRITING BUFFER...");
             bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
             writepos = 0;
           }
@@ -594,7 +592,6 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
               // check if there is enough space in buffer
               int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
               if (writepos+totalsize > 1024000) {
-                printf("WRITING BUFFER...");
                 bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
                 writepos = 0;
               }
@@ -656,7 +653,6 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   }
 
   // write remaining data into buffer
-  printf("WRITING BUFFER...");
   bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
   writepos = 0;
 
