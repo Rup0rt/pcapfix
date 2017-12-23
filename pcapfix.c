@@ -256,7 +256,12 @@ int main(int argc, char *argv[]) {
   }
 
   /* open the file for writing */
-  pcap_fix = fopen(filename_fix, "rb+");
+
+  // is output == inputfile ?? if yes, then open for read / append
+  // if no, then open for writing only
+  if (strcmp(filename, filename_fix) == 0) pcap_fix = fopen(filename_fix, "rb+");
+  else pcap_fix = fopen(filename_fix, "w+");
+
   if (!pcap_fix) {
     perror("[-] Cannot open output file for writing");
     return(-3);
