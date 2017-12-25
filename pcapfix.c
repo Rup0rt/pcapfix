@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * Copyright (c) 2012-2014 Robert Krause (ruport@f00l.de)
+ * Copyright (c) 2012-2017 Robert Krause (ruport@f00l.de)
  *
  * This file is part of Pcapfix.
  *
@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License along with
  * Pcapfix. If not, see http://www.gnu.org/licenses/.
  *
- * Last Modified: 31.08.2014
+ * Last Modified: 25.12.2017
  *
  *******************************************************************************
  *
@@ -44,7 +44,7 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.1.0"			    /* pcapfix version */
+#define VERSION "1.1.1"			    /* pcapfix version */
 
 #define BTSNOOP_MAGIC 0x6E737462    /* btsnoop file magic (first 4 bytes) */
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
@@ -475,8 +475,8 @@ int main(int argc, char *argv[]) {
     fclose(pcap);
     int finalpos = ftello(pcap_fix);
     fclose(pcap_fix);
-    int res = truncate(filename_fix, finalpos);
-    printf("RES: %d\n", res);
+    int success = truncate(filename_fix, finalpos);
+    if (success != 0) printf("[-] Truncating result file failed!");
 
     printf("[+] SUCCESS: %d Corruption(s) fixed!\n\n", res);
     return(1);

@@ -1,4 +1,4 @@
-.TH PCAPFIX 1 "31 AUG 2014"
+.TH PCAPFIX 1 "25 DEC 2017"
 
 .SH "NAME"
 pcapfix \- repair pcap and pcapng files
@@ -56,6 +56,13 @@ pcapfix \-n damaged.pcapng
 
 .SH "NOTES"
 .TP 5
+\fIOutput file name\fP
+
+If you want to perform the reparation process on the input file without creating a separate output file - e.g. in case you are out of space, you can use the -o option and give the same name as the input file.
+
+WARNING: This process is DANGEROUS and may destroy your data. You should only use this option if you know what you are doing and accept the risk of losing the input file.
+
+.TP
 \fIDeep scan\fP
 
 In classic pcap files, pcapfix will only scan the first 65536 bytes (maximum packet length) for a proper first packet. If you want to force packet detection even above this limit (e.g. because your file has been heavily destroyed) you can use the deep scan option (\-d).
@@ -254,6 +261,13 @@ For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 
 .SH "HISTORY"
 .TP 5
+1.1.1 - 25.12.2017
+* added write buffers and support to perform repair process without creation of a separate output file
+.br
+* fixed another MacOS build problem
+.br
+* fixed minor bugs
+.TP
 1.1.0 - 31.08.2013
 * added checks for valid pcapng format (epb)
 .br
@@ -387,7 +401,7 @@ For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 * this is the first version, everything has changed thou :-)
 
 .SH "COPYRIGHT"
-Copyright (c) 2012-2014 Robert Krause
+Copyright (c) 2012-2017 Robert Krause
 
 Pcapfix is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
 

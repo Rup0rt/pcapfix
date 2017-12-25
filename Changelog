@@ -1,6 +1,13 @@
 pcapfix Changelog
 *****************
 
+1.1.1 - 25.12.2017
+------------------
+* added write buffers and support to perform repair
+  process without creation of a separate output file
+* fixed another MacOS build problem
+* fixed minor bugs
+
 1.1.0 - 31.08.2014
 ------------------
 * added checks for valid pcapng format (epb)

@@ -1,4 +1,4 @@
-pcapfix v1.1.0 README
+pcapfix v1.1.1 README
 *********************
 
 Pcapfix is a tool to repair your damaged or corrupted pcap and pcapng files.
@@ -35,6 +35,15 @@ OPTIONS:        -d        , --deep-scan 	  	Deep Scan (default = 0) (pcap only!)
                 -t <nr>	  , --data-link-type <nr>	Data Link Type (default = 1)
                 -v        , --verbose 	  		Verbose output (default = 0)
 
+Output file name
+................
+If you want to perform the reparation process on the input file without creating a
+separate output file - e.g. in case you are out of space, you can use the -o option
+and give the same name as the input file.
+
+WARNING: This process is DANGEROUS and may destroy your data. You should only use
+this option if you know what you are doing and accept the risk of losing the input
+file.
 
 Deep Scan Option
 ................
@@ -159,7 +168,7 @@ NUMBER	LINK_TYPE
 COPYRIGHT
 =========
 
-Copyright 2012-2014 Robert Krause
+Copyright 2012-2017 Robert Krause
 
 Pcapfix is free software: you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
