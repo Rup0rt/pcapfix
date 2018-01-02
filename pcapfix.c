@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
   };
 
   /* print out pcapfix header information */
-  printf("pcapfix %s (c) 2012-2014 Robert Krause\n\n", VERSION);
+  printf("pcapfix %s (c) 2012-2017 Robert Krause\n\n", VERSION);
 
   /* scan for options and arguments */
   while ((c = getopt_long(argc, argv, ":t:o:v::d::n::", long_options, &option_index)) != -1) {
