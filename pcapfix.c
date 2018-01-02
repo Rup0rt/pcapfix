@@ -199,7 +199,7 @@ int main(int argc, char *argv[]) {
         pcapng++;
         break;
       case 'o':	/* output file name */
-        filename_fix = malloc(strlen(optarg));
+        filename_fix = malloc(strlen(optarg)+1);
 	strcpy(filename_fix, optarg);
         break;
       case 't':	/* data link type */
