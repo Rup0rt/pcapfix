@@ -479,7 +479,7 @@ int main(int argc, char *argv[]) {
     if (success != 0) printf("[-] Truncating result file failed!");
 
     printf("[+] SUCCESS: %d Corruption(s) fixed!\n\n", res);
-    return(1);
+    return(0);
 
   } else {
     /* Unknown Error (res < 0); this should NEVER happen! */
