@@ -53,7 +53,8 @@
 #define ETHERPEEK_MAGIC 0x7265767f  /* EtherPeek/AiroPeek/OmniPeek file magic */
 
 /* configuration variables */
-int deep_scan = 0;		    /* deep scan option (default: no deep scan) */
+int deep_scan = 0;		/* deep scan option (default: no deep scan) */
+int keep_outfile = 0; /* keep output file even if nothing needed fixing (default: don't)  */
 int verbose = 0;			/* verbose output option (default: dont be verbose) */
 int swapped = 0;			/* pcap file is swapped (big endian) */
 int data_link_type = -1;    /* data link type (default: LINKTYPE_ETHERNET) */
@@ -77,6 +78,7 @@ void usage(char *progname) {
   printf(  "\t-d        , --deep-scan          \tDeep scan (pcap only)\n");
   printf("\t\t-n        , --pcapng             \tforce pcapng format\n");
   printf("\t\t-o <file> , --outfile <file>     \tset output file name\n");
+  printf("\t\t-k        , --keep-outfile       \tdon't delete the output file if nothing needed to be fixed\n");
   printf("\t\t-t <nr>   , --data-link-type <nr>\tData link type\n");
   printf("\t\t-v        , --verbose            \tVerbose output\n");
   printf("\n");
@@ -176,11 +178,12 @@ int main(int argc, char *argv[]) {
 
   /* init getopt_long options struct */
   struct option long_options[] = {
-    {"deep-scan", no_argument, 0, 'd'},				        /* --deep-scan == -d */
-    {"pcapng", no_argument, 0, 'n'},				        /* --pcapng == -n */
-    {"outfile", required_argument, 0, 'o'},		    /* --outfile == -o */
-    {"data-link-type", required_argument, 0, 't'},		    /* --data-link-type == -t */
-    {"verbose", no_argument, 0, 'v'},				        /* --verbose == -v */
+    {"deep-scan", no_argument, 0, 'd'},            /* --deep-scan == -d */
+    {"pcapng", no_argument, 0, 'n'},               /* --pcapng == -n */
+    {"outfile", required_argument, 0, 'o'},        /* --outfile == -o */
+    {"keep-outfile", no_argument, 0, 'k'},         /* --keep-outfile == -k */
+    {"data-link-type", required_argument, 0, 't'}, /* --data-link-type == -t */
+    {"verbose", no_argument, 0, 'v'},              /* --verbose == -v */
     {0, 0, 0, 0}
   };
 
@@ -188,12 +191,15 @@ int main(int argc, char *argv[]) {
   printf("pcapfix %s (c) 2012-2017 Robert Krause\n\n", VERSION);
 
   /* scan for options and arguments */
-  while ((c = getopt_long(argc, argv, ":t:o:v::d::n::", long_options, &option_index)) != -1) {
+  while ((c = getopt_long(argc, argv, ":t:ko:v::d::n::", long_options, &option_index)) != -1) {
     switch (c) {
       case 0:	/* getopt_long options evaluation */
         break;
       case 'd':	/* deep scan */
         deep_scan++;
+        break;
+      case 'k': /* keep outfile even if nothing needed fixing */
+        keep_outfile++;
         break;
       case 'n':	/* pcapng format */
         pcapng++;
@@ -409,7 +415,9 @@ int main(int argc, char *argv[]) {
       fclose(pcap_fix);
 
       /* delete output file due to no changes failure */
-      if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
+      if ((strcmp(filename, filename_fix) != 0) && (0 == keep_outfile)) {
+        remove(filename_fix);
+      }
 
       return(0);
 
@@ -479,7 +487,7 @@ int main(int argc, char *argv[]) {
     if (success != 0) printf("[-] Truncating result file failed!");
 
     printf("[+] SUCCESS: %d Corruption(s) fixed!\n\n", res);
-    return(1);
+    return(0);
 
   } else {
     /* Unknown Error (res < 0); this should NEVER happen! */
