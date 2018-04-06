@@ -15,13 +15,13 @@ endif
 
 
 all: pcap pcapng
-	gcc $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) pcapfix.c pcap.o pcapng.o -o pcapfix
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) pcapfix.c pcap.o pcapng.o -o pcapfix
 
 pcap: pcap.c
-	gcc $(CPPFLAGS) $(CFLAGS) -c pcap.c -o pcap.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c pcap.c -o pcap.o
 
 pcapng: pcapng.c
-	gcc $(CPPFLAGS) $(CFLAGS) -c pcapng.c -o pcapng.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c pcapng.c -o pcapng.o
 
 install:
 	install -pDm755 pcapfix $(DESTDIR)$(BINDIR)/pcapfix
@@ -34,4 +34,3 @@ uninstall:
 clean:
 	rm -f *.o
 	rm -f pcapfix
-	
