@@ -481,7 +481,7 @@ int main(int argc, char *argv[]) {
     /* Successful repaired! (res > 0) */
 
     fclose(pcap);
-    int finalpos = ftello(pcap_fix);
+    off_t finalpos = ftello(pcap_fix);
     fclose(pcap_fix);
     int success = truncate(filename_fix, finalpos);
     if (success != 0) printf("[-] Truncating result file failed!");
