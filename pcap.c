@@ -26,7 +26,7 @@ int nanoseconds = 0;			      /* pcap file uses nanoseconds (instead of microseco
  * Function:  is_plausible
  * -----------------------
  * check if the pcap packet header could be a plausible one by satisfying those conditions:
- * - packet size >= 16 bytes AND <= 65535 bytes (included length AND original length) (conditions 1,2,3,4)
+ * - packet size >= 16 bytes AND <= MAX_SNAPLEN bytes (included length AND original length) (conditions 1,2,3,4)
  * - included length <= original lenth (condition 5)
  * - packet timestamp is NOT older OR younger than the prior packets timestamp -+ one day (conditions 6,7)
  * - usec (microseconds) field <= 1000000 (conditions 8)
@@ -46,9 +46,9 @@ int is_plausible(struct packet_hdr_s hdr, unsigned int prior_ts) {
   if (conint(hdr.incl_len) < 10) return(-1);
   if (conint(hdr.orig_len) < 10) return(-2);
 
-  /* check max maximum packet size (0xffff) */
-  if (conint(hdr.incl_len) > 65535) return(-3);
-  if (conint(hdr.orig_len) > 65535) return(-4);
+  /* check max maximum packet size (262144) */
+  if (conint(hdr.incl_len) > PCAP_MAX_SNAPLEN) return(-3);
+  if (conint(hdr.orig_len) > PCAP_MAX_SNAPLEN) return(-4);
 
   /* the included length CAN NOT be larger than the original length */
   if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-5);
@@ -145,12 +145,12 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
  *
  */
 int fix_pcap(FILE *pcap, FILE *pcap_fix) {
-  struct global_hdr_s global_hdr;		      /* global header data */
-  struct packet_hdr_s packet_hdr;		      /* packet header data */
-  struct packet_hdr_s next_packet_hdr;		  /* next packet header data to look forward */
+  struct global_hdr_s global_hdr;		/* global header data */
+  struct packet_hdr_s packet_hdr;		/* packet header data */
+  struct packet_hdr_s next_packet_hdr;		/* next packet header data to look forward */
 
-  char hdrbuffer[sizeof(packet_hdr)*2];		  /* the buffer that will be used to find a proper packet */
-  char buffer[65535];				          /* the packet body */
+  char hdrbuffer[sizeof(packet_hdr)*2];		/* the buffer that will be used to find a proper packet */
+  char buffer[PCAP_MAX_SNAPLEN];		/* the packet body */
 
   // we use a buffer to cache 1mb of writing... this way writing is faster and
   // we can read and write the file at the same time
@@ -257,12 +257,12 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   }
 
   /* check for max packet length */
-  if ((conint(global_hdr.snaplen) > 0) && (conint(global_hdr.snaplen) <= 65535)) {	/* typically 65535 (no support for huge packets yet) */
+  if ((conint(global_hdr.snaplen) > 0) && (conint(global_hdr.snaplen) <= PCAP_MAX_SNAPLEN)) {	/* typically 262144 nowadays */
     if (verbose) printf("[+] Max packet length: %u\n", conint(global_hdr.snaplen));
   } else {
     hdr_integ++;
     if (verbose) printf("[-] Max packet length: %u\n", conint(global_hdr.snaplen));
-    global_hdr.snaplen = conint(65535);
+    global_hdr.snaplen = conint(PCAP_MAX_SNAPLEN);
   }
 
   /* check for data link type (http://www.tcpdump.org/linktypes.html) */
@@ -293,7 +293,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
     fseeko(pcap, 0, SEEK_SET);
 
     /* set important header values to defaults */
-    global_hdr.snaplen = conint(65535);
+    global_hdr.snaplen = conint(PCAP_MAX_SNAPLEN);
 
     if (data_link_type != -1) {
       global_hdr.network = conint(data_link_type);
@@ -474,7 +474,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
       /* scan from the current position to the maximum packet size and look for a next proper packet header to align the corrupted packet
        * also do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
-      for (nextpos=pos+16+1; (nextpos <= pos+16+65535) || (count == 1 && deep_scan == 1); nextpos++) {
+      for (nextpos=pos+16+1; (nextpos <= pos+16+PCAP_MAX_SNAPLEN) || (count == 1 && deep_scan == 1); nextpos++) {
 
         /* read the possible next packets header */
         fseeko(pcap, nextpos, SEEK_SET);
@@ -542,8 +542,8 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
         res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &next_packet_hdr);
         if (res != -1) {
 
-          /* if we found a packet that is below the top 65535 bytes (deep scan) we cut it off and take the second packet as first one */
-          if ((nextpos-(pos+16) > 65535) && (count == 1) && (deep_scan == 1)) {
+          /* if we found a packet that is below the top MAX_SNAPLEN bytes (deep scan) we cut it off and take the second packet as first one */
+          if ((nextpos-(pos+16) > PCAP_MAX_SNAPLEN) && (count == 1) && (deep_scan == 1)) {
 
             if (verbose >= 1) printf("[+] (DEEP SCAN) FOUND FIRST Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
@@ -629,7 +629,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
       if (corrupted == -1) break;
 
       /* did the counter exceed the maximum packet size? */
-      if ((count == 1 && deep_scan == 0) && (nextpos > pos+16+65535)) {
+      if ((count == 1 && deep_scan == 0) && (nextpos > pos+16+PCAP_MAX_SNAPLEN)) {
 
         /* PACKET COULD NOT BE REPAIRED! */
 
@@ -638,7 +638,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
       }
 
       /* maximum search range reached? -> skip packet and keep on searching */
-      if (deep_scan == 0 && (nextpos > pos+16+65535)) {
+      if (deep_scan == 0 && (nextpos > pos+16+PCAP_MAX_SNAPLEN)) {
         if (verbose >= 1) printf("[-] No next packet found within max packet range --> SKIPPING!\n");
 
         /* reset counter because no packet found */

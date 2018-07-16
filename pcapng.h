@@ -33,6 +33,8 @@
 #define TYPE_ISB 0x00000005         /* Interface Statistics Block */
 #define TYPE_EPB 0x00000006         /* Enhanced Packet Block */
 
+#define PCAPNG_MAX_SNAPLEN 262144   /* maximum snap length */
+
 /*
  * Function:  fix_pcapng
  * ---------------------

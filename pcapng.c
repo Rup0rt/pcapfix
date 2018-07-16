@@ -1483,10 +1483,10 @@ int find_valid_block(FILE *pcap, uint64_t filesize) {
       }
 
       /* Simple Packet Block Checks:
-       * - max size <= 65535 */
+       * - max size <= MAX_SNAPLEN */
       if (bh.block_type == TYPE_SPB) {
         /* max size check */
-        if (bh.total_length > 65536) continue;
+        if (bh.total_length > PCAPNG_MAX_SNAPLEN) continue;
       }
 
       /* Name Resolution Block Checks:
@@ -1670,7 +1670,7 @@ int write_idb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos) {
   idb.reserved = 0;
 
   /* we set snaplen to maximum */
-  idb.snaplen = 65535;
+  idb.snaplen = PCAPNG_MAX_SNAPLEN;
 
   /* increase total size by interface desciption block (header) */
   size += sizeof(struct interface_description_block);

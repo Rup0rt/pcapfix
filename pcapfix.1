@@ -18,7 +18,7 @@ To fix your pcapng files the tool loops through all packet headers that can be f
 \-d, \-\-deep\-scan
 Force deep scan (default = 0)
 .br
-This option will force pcapfix to scan for any packet inside the whole file (instead of the first 65535 bytes only).
+This option will force pcapfix to scan for any packet inside the whole file (instead of the first 262144 (max snaplen) bytes only).
 .TP
 \-n, \-\-pcapng
 Force File Format to PCAPNG (default = 0)
