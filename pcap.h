@@ -66,30 +66,32 @@ struct ext_packet_hdr_s {
  * - usec (microseconds) field <= 1000000 (conditions 8)
  * - usec (nanoseconds) field <= 1000000000 (conditions 9)
  *
- * hdr:       the filled packet header struct to check for plausibility
- * prior_ts:  the prior packets timestamp (seconds) to check for time relation (condition 6,7)
+ * global_hdr: the filled pcap header to check for snaplen
+ * hdr:        the filled packet header struct to check for plausibility
+ * prior_ts:   the prior packets timestamp (seconds) to check for time relation (condition 6,7)
  *
  * returns:  0   success
  *          -X   error (condition X failed)
  *
  */
-int is_plausible(struct packet_hdr_s hdr, unsigned int prior_ts);
+int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsigned int prior_ts);
 
 /*
  * Function:  check_header
  * -----------------------
  * this function takes a buffer and brute forces some possible ascii-corrupted bytes versus plausibility checks
  *
- * buffer:   the buffer that might contain the possible pcap packet header
- * size:     the size of the buffer (double pcap packet header size is a good choice)
- * priot_ts: the prior packets timestamp (to check for plausibility)
- * hdr:      the pointer to the packet header buffer (we use this to return the repaired header)
+ * buffer:     the buffer that might contain the possible pcap packet header
+ * size:       the size of the buffer (double pcap packet header size is a good choice)
+ * priot_ts:   the prior packets timestamp (to check for plausibility)
+ * global_hdr: the pointer to the pcap buffer
+ * hdr:        the pointer to the packet header buffer (we use this to return the repaired header)
  *
  * returns: >=0   success (return value contains number of ascii corrupted bytes in hdr (we need this data to align the beginning of the packet body later)
  *           -1   error (no valid pcap header found inside buffer)
  *
  */
-int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct packet_hdr_s *hdr);
+int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct global_hdr_s *global_hdr, struct packet_hdr_s *hdr);
 
 /*
  * Function:  fix_pcap

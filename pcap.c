@@ -32,22 +32,23 @@ int nanoseconds = 0;			      /* pcap file uses nanoseconds (instead of microseco
  * - usec (microseconds) field <= 1000000 (conditions 8)
  * - usec (nanoseconds) field <= 1000000000 (conditions 9)
  *
- * hdr:       the filled packet header struct to check for plausibility
- * prior_ts:  the prior packets timestamp (seconds) to check for time relation (condition 6,7)
+ * global_hdr: the filled pcap header struct to check for snaplen
+ * hdr:        the filled packet header struct to check for plausibility
+ * prior_ts:   the prior packets timestamp (seconds) to check for time relation (condition 6,7)
  *
  * returns:  0   success
  *          -X   error (condition X failed)
  *
  */
-int is_plausible(struct packet_hdr_s hdr, unsigned int prior_ts) {
+int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsigned int prior_ts) {
   /* check for minimum packet size
    * minimum packet size should be 16, but in some cases, e.g. local wlan capture, packet might
    * even be smaller --> decreased minimum size to 10 */
   if (conint(hdr.incl_len) < 10) return(-1);
   if (conint(hdr.orig_len) < 10) return(-2);
 
-  /* check max maximum packet size (262144) */
-  if (conint(hdr.incl_len) > PCAP_MAX_SNAPLEN) return(-3);
+  /* check packet limit with header field and max snaplen */
+  if (conint(hdr.incl_len) > conint(global_hdr.snaplen)) return(-3);
   if (conint(hdr.orig_len) > PCAP_MAX_SNAPLEN) return(-4);
 
   /* the included length CAN NOT be larger than the original length */
@@ -77,23 +78,24 @@ int is_plausible(struct packet_hdr_s hdr, unsigned int prior_ts) {
  * -----------------------
  * this function takes a buffer and brute forces some possible ascii-corrupted bytes versus plausibility checks
  *
- * buffer:   the buffer that might contain the possible pcap packet header
- * size:     the size of the buffer (double pcap packet header size is a good choice)
- * priot_ts: the prior packets timestamp (to check for plausibility)
- * hdr:      the pointer to the packet header buffer (we use this to return the repaired header)
+ * buffer:     the buffer that might contain the possible pcap packet header
+ * size:       the size of the buffer (double pcap packet header size is a good choice)
+ * priot_ts:   the prior packets timestamp (to check for plausibility)
+ * global_hdr: the pointer to the pcap header
+ * hdr:        the pointer to the packet header buffer (we use this to return the repaired header)
  *
  * returns: >=0   success (return value contains number of ascii corrupted bytes in hdr (we need this data to align the beginning of the packet body later)
  *           -1   error (no valid pcap header found inside buffer)
  *
  */
-int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct packet_hdr_s *hdr) {
+int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct global_hdr_s *global_hdr, struct packet_hdr_s *hdr) {
   unsigned int i; /* loop variable - first byte in buffer that could be beginning of packet */
   int res;        /* return value */
   char *tmp;      /* the temporary buffer that will be used for recursion */
 
   /* does the buffer already contain a valid packet header (without any correction) ?? */
   memcpy(hdr, buffer, sizeof(struct packet_hdr_s));
-  res = is_plausible(*hdr, prior_ts);
+  res = is_plausible(*global_hdr, *hdr, prior_ts);
   if (res == 0) return(0);
 
   if (verbose >= 2) printf("[-] Header plausibility check failed with error code %d\n", res);
@@ -115,7 +117,7 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
       memcpy(tmp+i, buffer+i+1, size-i-1);
 
       /* and invoke the header again without this 0x0D byte */
-      res = check_header(tmp, size-1, prior_ts, hdr);
+      res = check_header(tmp, size-1, prior_ts, global_hdr, hdr);
 
       /* free recursion buffer */
       free(tmp);
@@ -355,7 +357,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
     if (bytes != 1) return -3;
 
     /* check if the packet header looks proper */
-    res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &packet_hdr);
+    res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &packet_hdr);
     if (res != -1) {
 
       /* realign packet body (based on possible-ascii corrupted pcap header) */
@@ -387,7 +389,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
       bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
 
       /* check if next packets header looks proper */
-      if (check_header(hdrbuffer, sizeof(hdrbuffer), conint(packet_hdr.ts_sec), &next_packet_hdr) == -1) {
+      if (check_header(hdrbuffer, sizeof(hdrbuffer), conint(packet_hdr.ts_sec), &global_hdr, &next_packet_hdr) == -1) {
 
         /* the next packets header is corrupted thou we are going to scan through the prior packets body to look for an overlapped packet header
          * also look inside the next packets header + 16bytes of packet body, because we need to know HERE
@@ -402,7 +404,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
           if (verbose >= 2) printf("[*] Trying Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
           /* check the header for plausibility */
-          res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &next_packet_hdr);
+          res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &next_packet_hdr);
           if (res != -1) {
 
             /* we found a proper header inside the packets body! */
@@ -491,6 +493,16 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
           printf("[*] End of file reached. Aligning last packet.\n");
 
+          /* check last packet for plausiblilty */
+          res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &packet_hdr);
+          if (res != 0) {
+            printf("[-] Cannot align last packet, because it is broken.\n");
+            count--;
+            break;
+          }
+
+          /* check passed */
+
           /* align the last packet to match EOF */
           packet_hdr.incl_len = conint(filesize-(pos+16));
           packet_hdr.orig_len = packet_hdr.incl_len;
@@ -539,7 +551,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
         if (verbose >= 2) printf("[*] Trying Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
         /* check if next packets header looks proper */
-        res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &next_packet_hdr);
+        res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &next_packet_hdr);
         if (res != -1) {
 
           /* if we found a packet that is below the top MAX_SNAPLEN bytes (deep scan) we cut it off and take the second packet as first one */
@@ -586,7 +598,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
             bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
             /* final check resulting packet for plausibility */
-            res = is_plausible(packet_hdr, last_correct_ts_sec);
+            res = is_plausible(global_hdr, packet_hdr, last_correct_ts_sec);
             if (res == 0) {
 
               // check if there is enough space in buffer
@@ -690,6 +702,11 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
     }
 
   } else {
+    /* check if we found at least one packet */
+    if (count == 1) {
+      /* even the first packet was corrupted and no other packet could be found */
+      return(-1);
+    }
 
     /* file has been successfully repaired (corruption fixed) */
 
