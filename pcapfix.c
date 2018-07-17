@@ -44,7 +44,7 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.1.2-devel"			    /* pcapfix version */
+#define VERSION "1.1.2-1"			    /* pcapfix version */
 
 #define BTSNOOP_MAGIC 0x6E737462    /* btsnoop file magic (first 4 bytes) */
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */

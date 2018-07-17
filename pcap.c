@@ -400,6 +400,9 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
           fseeko(pcap, nextpos, SEEK_SET);
           bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
 
+          /* check read success */
+          if (bytes == 0) break;
+
           /* heavy verbose output :-) */
           if (verbose >= 2) printf("[*] Trying Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
