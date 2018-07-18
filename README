@@ -58,6 +58,18 @@ in blocks that are 'unlimited' by default. In result pcapfix will always scan
 the whole pcapng file for further blocks.
 
 
+Soft Mode
+.........
+
+There are programs that breach some pcap conventions when writing files.
+Ignoring those rules do not break the pcap file but they make it difficult for
+pcapfix to identify the packets in case of broken files.
+
+By default pcapfix uses hard mode. If you encounter problems when repairing
+files, try to switch to soft mode (-s). Pcapfix will then try to find the
+packets in a more tolerant way.
+
+
 PCAPNG Format
 .............
 

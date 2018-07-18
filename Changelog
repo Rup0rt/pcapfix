@@ -1,6 +1,10 @@
 pcapfix Changelog
 *****************
 
+1.1.3 - 18.07.2018
+------------------
+* implemtented soft mode (for plausibility checks)
+
 1.1.2 - 16.07.2018
 ------------------
 * fixed cross compiling (thanks to Helmut Grohne)
