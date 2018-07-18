@@ -47,26 +47,50 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
   if (conint(hdr.incl_len) < 10) return(-1);
   if (conint(hdr.orig_len) < 10) return(-2);
 
-  /* check packet limit with header field and max snaplen */
-  if (conint(hdr.incl_len) > conint(global_hdr.snaplen)) return(-3);
+  /* check packet limit with header field and max snaplen
+     in soft mode the packet detection accepts a wider range */
+  if (soft_mode) {
+    /* in soft mode, global pcap snap length is ignored, instead MAX snaplen is used */
+    if (conint(hdr.incl_len) > PCAP_MAX_SNAPLEN) return(-3);
+  } else {
+    /* in hard mode, global pcap snap length is the limit in plausibility checks */
+    if (conint(hdr.incl_len) > conint(global_hdr.snaplen)) return(-3);
+  }
   if (conint(hdr.orig_len) > PCAP_MAX_SNAPLEN) return(-4);
 
   /* the included length CAN NOT be larger than the original length */
   if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-5);
 
-  /* packet is not older than one day (related to prior packet) */
-  if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(-6);
-
-  /* packet is not younger than one day (related to prior packet) */
-  if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(-7);
-
-  /* check for nano/microseconds */
-  if (nanoseconds == 0) {
-    /* usec (microseconds) must <= 1000000 */
-    if (conint(hdr.ts_usec) > 1000000) return(-8);
+  /* check packet times (older) */
+  if (soft_mode) {
+    /* in soft mode, packet must be older than prior packet */
+    if ((prior_ts != 0) && (conint(hdr.ts_sec) < prior_ts)) return(-6);
   } else {
-    /* usec (nanoseconds) must be <= 1000000000 */
-    if (conint(hdr.ts_usec) > 1000000000) return(-9);
+    /* in hard mode, packet must not be older than one day (related to prior packet) */
+    if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(-6);
+  }
+
+  /* check packet times (younger) */
+  /* in hard mode, packet must not be younger than one day (related to prior packet) */
+  if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(-7);
+  /* soft mode does not matter for younger timings, because all packets must be older
+     than the prior one */
+
+  /* check for nano/microseconds (hard mode only) */
+  if (!soft_mode) {
+    /* in hard mode */
+    if (nanoseconds == 0) {
+      /* usec (microseconds) must <= 1000000 */
+      if (conint(hdr.ts_usec) > 1000000) return(-8);
+    } else {
+      /* usec (nanoseconds) must be <= 1000000000 */
+      if (conint(hdr.ts_usec) > 1000000000) return(-9);
+    }
+  }
+
+  /* output warnings if occured */
+  if (!deep_scan && conint(hdr.incl_len) > conint(global_hdr.snaplen) && verbose) {
+    printf("[!] Packet capture length is larger than maximum size defined in global pcap header: %u > %u\n", conint(hdr.incl_len), conint(global_hdr.snaplen));
   }
 
   /* all conditions fullfilled ==> everything fine! */

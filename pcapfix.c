@@ -44,7 +44,7 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.1.2-1"			    /* pcapfix version */
+#define VERSION "1.1.2-2"			    /* pcapfix version */
 
 #define BTSNOOP_MAGIC 0x6E737462    /* btsnoop file magic (first 4 bytes) */
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
@@ -54,11 +54,12 @@
 
 /* configuration variables */
 int deep_scan = 0;		/* deep scan option (default: no deep scan) */
-int keep_outfile = 0; /* keep output file even if nothing needed fixing (default: don't)  */
-int verbose = 0;			/* verbose output option (default: dont be verbose) */
-int swapped = 0;			/* pcap file is swapped (big endian) */
-int data_link_type = -1;    /* data link type (default: LINKTYPE_ETHERNET) */
-int pcapng = 0;             /* file format to assume */
+int soft_mode = 0;		/* soft mode option (default: no soft mode) */
+int keep_outfile = 0;		/* keep output file even if nothing needed fixing (default: don't) */
+int verbose = 0;		/* verbose output option (default: dont be verbose) */
+int swapped = 0;		/* pcap file is swapped (big endian) */
+int data_link_type = -1;	/* data link type (default: LINKTYPE_ETHERNET) */
+int pcapng = 0;			/* file format to assume */
 
 /* header placeholder */
 unsigned int header_magic;
@@ -76,6 +77,7 @@ void usage(char *progname) {
   printf("Usage: %s [OPTIONS] filename\n", progname);
   printf("OPTIONS:");
   printf(  "\t-d        , --deep-scan          \tDeep scan (pcap only)\n");
+  printf("\t\t-s        , --soft-mode          \tSoft mode (packet detection)\n");
   printf("\t\t-n        , --pcapng             \tforce pcapng format\n");
   printf("\t\t-o <file> , --outfile <file>     \tset output file name\n");
   printf("\t\t-k        , --keep-outfile       \tdon't delete the output file if nothing needed to be fixed\n");
@@ -179,6 +181,7 @@ int main(int argc, char *argv[]) {
   /* init getopt_long options struct */
   struct option long_options[] = {
     {"deep-scan", no_argument, 0, 'd'},            /* --deep-scan == -d */
+    {"soft-mode", no_argument, 0, 's'},            /* --soft-mode == -s */
     {"pcapng", no_argument, 0, 'n'},               /* --pcapng == -n */
     {"outfile", required_argument, 0, 'o'},        /* --outfile == -o */
     {"keep-outfile", no_argument, 0, 'k'},         /* --keep-outfile == -k */
@@ -191,12 +194,15 @@ int main(int argc, char *argv[]) {
   printf("pcapfix %s (c) 2012-2018 Robert Krause\n\n", VERSION);
 
   /* scan for options and arguments */
-  while ((c = getopt_long(argc, argv, ":t:ko:v::d::n::", long_options, &option_index)) != -1) {
+  while ((c = getopt_long(argc, argv, ":t:ko:v::d::s::n::", long_options, &option_index)) != -1) {
     switch (c) {
       case 0:	/* getopt_long options evaluation */
         break;
       case 'd':	/* deep scan */
         deep_scan++;
+        break;
+      case 's':	/* soft mode */
+        soft_mode++;
         break;
       case 'k': /* keep outfile even if nothing needed fixing */
         keep_outfile++;
@@ -432,11 +438,9 @@ int main(int argc, char *argv[]) {
       /* delete output file due to failure */
       if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
 
-      /* deep scan dependent output */
-      if (pcapng == 0) {
-        if (deep_scan == 0) printf("If you are SURE that there are pcap packets inside, try with deep scan option (-d) to find them!\n\n");
-        else printf("There is REALLY no pcap packet inside this file!!!\n\n");
-      }
+      /* deep scan / soft mode dependent output */
+      if (deep_scan == 0 || soft_mode == 0) printf("If you are SURE that there are pcap packets inside, try with deep scan (-d) (pcap only!) and/or soft mode (-s) to find them!\n\n");
+      else printf("There is REALLY no pcap packet inside this file!!!\n\n");
 
       return(res-10);
 

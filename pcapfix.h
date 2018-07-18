@@ -88,9 +88,10 @@ unsigned int conint(unsigned int var);
 void print_progress(uint64_t pos, uint64_t filesize);
 
 /* global configuration variables */
-extern int deep_scan;       /* deep scan option (default: no depp scan) */
-extern int verbose;				  /* verbose output option (default: dont be verbose) */
-extern int swapped;			    /* pcap file is swapped (big endian) */
-extern int data_link_type;  /* data link type (default: LINKTYPE_ETHERNET) */
+extern int deep_scan;		/* deep scan option (default: no depp scan) */
+extern int verbose;		/* verbose output option (default: dont be verbose) */
+extern int swapped;		/* pcap file is swapped (big endian) */
+extern int data_link_type;	/* data link type (default: LINKTYPE_ETHERNET) */
+extern int soft_mode;		/* soft plausibility check (default: OFF) */
 
 #endif
