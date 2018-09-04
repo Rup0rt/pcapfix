@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License along with
  * Pcapfix. If not, see http://www.gnu.org/licenses/.
  *
- * Last Modified: 16.07.2018
+ * Last Modified: 04.09.2018
  *
  *******************************************************************************
  *
@@ -44,7 +44,7 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.1.2-2"			    /* pcapfix version */
+#define VERSION "1.1.3"			    /* pcapfix version */
 
 #define BTSNOOP_MAGIC 0x6E737462    /* btsnoop file magic (first 4 bytes) */
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */

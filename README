@@ -1,4 +1,4 @@
-pcapfix v1.1.2 README
+pcapfix v1.1.3 README
 *********************
 
 Pcapfix is a tool to repair your damaged or corrupted pcap and pcapng files.
@@ -30,6 +30,7 @@ USAGE
 
 ./pcapfix [OPTIONS] filename
 OPTIONS:        -d        , --deep-scan 	  	Deep Scan (default = 0) (pcap only!)
+		-s        , --soft-mode			Soft mode (packet detection)
                 -n        , --pcapng 	  		Force File Format to PCAPNG
 		-o <file> , --outfile <file>		Set output file name
                 -t <nr>	  , --data-link-type <nr>	Data Link Type (default = 1)
