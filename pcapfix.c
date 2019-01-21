@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * Copyright (c) 2012-2018 Robert Krause (ruport@f00l.de)
+ * Copyright (c) 2012-2019 Robert Krause (ruport@f00l.de)
  *
  * This file is part of Pcapfix.
  *
@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License along with
  * Pcapfix. If not, see http://www.gnu.org/licenses/.
  *
- * Last Modified: 04.09.2018
+ * Last Modified: 21.01.2019
  *
  *******************************************************************************
  *
@@ -44,7 +44,7 @@
 #include "pcap.h"
 #include "pcapng.h"
 
-#define VERSION "1.1.3"			    /* pcapfix version */
+#define VERSION "1.1.4"			    /* pcapfix version */
 
 #define BTSNOOP_MAGIC 0x6E737462    /* btsnoop file magic (first 4 bytes) */
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
   };
 
   /* print out pcapfix header information */
-  printf("pcapfix %s (c) 2012-2018 Robert Krause\n\n", VERSION);
+  printf("pcapfix %s (c) 2012-2019 Robert Krause\n\n", VERSION);
 
   /* scan for options and arguments */
   while ((c = getopt_long(argc, argv, ":t:ko:v::d::s::n::", long_options, &option_index)) != -1) {
