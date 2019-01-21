@@ -5,6 +5,7 @@ pcapfix Changelog
 ------------------
 * fixed dtl 113 (linux cooked) handling (thanks to Andre Luyer)
 * improved hard and soft mode checks for younger/older packets
+* minor fixes and improvements
 
 1.1.3 - 04.09.2018
 ------------------

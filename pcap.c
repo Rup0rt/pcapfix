@@ -26,11 +26,11 @@ int nanoseconds = 0;			      /* pcap file uses nanoseconds (instead of microseco
  * Function:  is_plausible
  * -----------------------
  * check if the pcap packet header could be a plausible one by satisfying those conditions:
- * - packet size >= 16 bytes AND <= MAX_SNAPLEN bytes (included length AND original length) (conditions 1,2,3,4)
- * - included length <= original lenth (condition 5)
- * - packet timestamp is NOT older OR younger than the prior packets timestamp -+ one day (conditions 6,7)
- * - usec (microseconds) field <= 1000000 (conditions 8)
- * - usec (nanoseconds) field <= 1000000000 (conditions 9)
+ * - packet size >= 16 bytes AND <= MAX_SNAPLEN bytes (included length AND original length) (conditions 1,2,3,4,5)
+ * - included length <= original lenth (conditions 6,7,8)
+ * - packet timestamp is NOT older OR younger than the prior packets timestamp -+ one day (conditions 9,10,11)
+ * - usec (microseconds) field <= 1000000 (conditions 12)
+ * - usec (nanoseconds) field <= 1000000000 (conditions 13)
  *
  * global_hdr: the filled pcap header struct to check for snaplen
  * hdr:        the filled packet header struct to check for plausibility
@@ -56,31 +56,38 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
     /* in hard mode, global pcap snap length is the limit in plausibility checks */
     if (conint(hdr.incl_len) > conint(global_hdr.snaplen)) return(-4);
   }
+  /* orig length should not be greater than pcap max snaplen */
   if (conint(hdr.orig_len) > PCAP_MAX_SNAPLEN) return(-5);
+
+  /* if the packet original size is larger than the included length, then
+     the included length should be limited by the files snap length */
+  if (conint(hdr.orig_len) > conint(hdr.incl_len)) {
+    if (conint(hdr.incl_len) != conint(global_hdr.snaplen)) return(-6);
+  }
 
   /* the included length CAN NOT be larger than the original length */
   /* check for LINKTYPE_LINUX_SLL (linux cooked) */
   if (global_hdr.network == 113) {
     /* linux cooked headers are appended to packet length, but not to orig length
        so we need to remove it from incl_len before checking */
-    if (conint(hdr.incl_len)-16 > conint(hdr.orig_len)) return(-6);
-  } else if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-7);
+    if (conint(hdr.incl_len)-16 > conint(hdr.orig_len)) return(-7);
+  } else if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-8);
 
   /* check packet times (older) */
   if (soft_mode) {
     /* in soft mode, there is no limit for older packets */
   } else {
     /* in hard mode, packet must not be older than one day (related to prior packet) */
-    if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(-8);
+    if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(-9);
   }
 
   /* check packet times (younger) */
   if (soft_mode) {
     /* in soft mode, packet must not be younger than one day (related to prior packet) */
-    if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(-9);
+    if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(-10);
   } else {
     /* in hard mode, packets must not be younger than prior packet */
-    if ((prior_ts != 0) && (conint(hdr.ts_sec) < prior_ts)) return(-10);
+    if ((prior_ts != 0) && (conint(hdr.ts_sec) < prior_ts)) return(-11);
   }
 
   /* check for nano/microseconds (hard mode only) */
@@ -88,10 +95,10 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
     /* in hard mode */
     if (nanoseconds == 0) {
       /* usec (microseconds) must <= 1000000 */
-      if (conint(hdr.ts_usec) > 1000000) return(-11);
+      if (conint(hdr.ts_usec) > 1000000) return(-12);
     } else {
       /* usec (nanoseconds) must be <= 1000000000 */
-      if (conint(hdr.ts_usec) > 1000000000) return(-12);
+      if (conint(hdr.ts_usec) > 1000000000) return(-13);
     }
   }
 
