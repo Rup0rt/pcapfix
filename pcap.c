@@ -59,7 +59,11 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
   if (conint(hdr.orig_len) > PCAP_MAX_SNAPLEN) return(-4);
 
   /* the included length CAN NOT be larger than the original length */
-  if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-5);
+  if (global_hdr.network == 113) { // check for LINKTYPE_LINUX_SLL (linux cooked)
+    // linux cooked headers are appended to packet length, but not to orig length
+    // so we need to remove it from incl_len before checking
+    if (conint(hdr.incl_len)-16 > conint(hdr.orig_len)) return(-5);
+  } else if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-5);
 
   /* check packet times (older) */
   if (soft_mode) {
