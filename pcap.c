@@ -54,33 +54,33 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
     if (conint(hdr.incl_len) > PCAP_MAX_SNAPLEN) return(-3);
   } else {
     /* in hard mode, global pcap snap length is the limit in plausibility checks */
-    if (conint(hdr.incl_len) > conint(global_hdr.snaplen)) return(-3);
+    if (conint(hdr.incl_len) > conint(global_hdr.snaplen)) return(-4);
   }
-  if (conint(hdr.orig_len) > PCAP_MAX_SNAPLEN) return(-4);
+  if (conint(hdr.orig_len) > PCAP_MAX_SNAPLEN) return(-5);
 
   /* the included length CAN NOT be larger than the original length */
   /* check for LINKTYPE_LINUX_SLL (linux cooked) */
   if (global_hdr.network == 113) {
     /* linux cooked headers are appended to packet length, but not to orig length
        so we need to remove it from incl_len before checking */
-    if (conint(hdr.incl_len)-16 > conint(hdr.orig_len)) return(-5);
-  } else if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-5);
+    if (conint(hdr.incl_len)-16 > conint(hdr.orig_len)) return(-6);
+  } else if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-7);
 
   /* check packet times (older) */
   if (soft_mode) {
     /* in soft mode, there is no limit for older packets */
   } else {
     /* in hard mode, packet must not be older than one day (related to prior packet) */
-    if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(-6);
+    if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(-8);
   }
 
   /* check packet times (younger) */
   if (soft_mode) {
     /* in soft mode, packet must not be younger than one day (related to prior packet) */
-    if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(-7);
+    if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(-9);
   } else {
     /* in hard mode, packets must not be younger than prior packet */
-    if ((prior_ts != 0) && (conint(hdr.ts_sec) < prior_ts)) return(-7);
+    if ((prior_ts != 0) && (conint(hdr.ts_sec) < prior_ts)) return(-10);
   }
 
   /* check for nano/microseconds (hard mode only) */
@@ -88,10 +88,10 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
     /* in hard mode */
     if (nanoseconds == 0) {
       /* usec (microseconds) must <= 1000000 */
-      if (conint(hdr.ts_usec) > 1000000) return(-8);
+      if (conint(hdr.ts_usec) > 1000000) return(-11);
     } else {
       /* usec (nanoseconds) must be <= 1000000000 */
-      if (conint(hdr.ts_usec) > 1000000000) return(-9);
+      if (conint(hdr.ts_usec) > 1000000000) return(-12);
     }
   }
 
