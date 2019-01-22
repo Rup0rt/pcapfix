@@ -27,10 +27,10 @@ int nanoseconds = 0;			      /* pcap file uses nanoseconds (instead of microseco
  * -----------------------
  * check if the pcap packet header could be a plausible one by satisfying those conditions:
  * - packet size >= 16 bytes AND <= MAX_SNAPLEN bytes (included length AND original length) (conditions 1,2,3,4,5)
- * - included length <= original lenth (conditions 6,7,8)
- * - packet timestamp is NOT older OR younger than the prior packets timestamp -+ one day (conditions 9,10,11)
- * - usec (microseconds) field <= 1000000 (conditions 12)
- * - usec (nanoseconds) field <= 1000000000 (conditions 13)
+ * - included length <= original lenth (conditions 6,7,8,9)
+ * - packet timestamp is NOT older OR younger than the prior packets timestamp -+ one day (conditions 10,11,12)
+ * - usec (microseconds) field <= 1000000 (conditions 13)
+ * - usec (nanoseconds) field <= 1000000000 (conditions 14)
  *
  * global_hdr: the filled pcap header struct to check for snaplen
  * hdr:        the filled packet header struct to check for plausibility
@@ -48,12 +48,16 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
   if (conint(hdr.orig_len) < 10) return(-2);
 
   /* check packet limit with header field and max snaplen
-     in soft mode the packet detection accepts a wider range */
-  if (soft_mode) {
+     in soft mode (and dlt 119) the packet detection accepts a wider range */
+  if (soft_mode || global_hdr.network == 119) {
     /* in soft mode, global pcap snap length is ignored, instead MAX snaplen is used */
+
+    /* strange behavior for wlan: in some cases incl length seems to differ
+       not following the configured max snap length; this leads to dropping
+       valid wlan packets -> use soft mode for DLT 119 */
     if (conint(hdr.incl_len) > PCAP_MAX_SNAPLEN) return(-3);
   } else {
-    /* in hard mode, global pcap snap length is the limit in plausibility checks */
+    /* in hard mode (and not dlt 119), global pcap snap length is the limit in plausibility checks */
     if (conint(hdr.incl_len) > conint(global_hdr.snaplen)) return(-4);
   }
   /* orig length should not be greater than pcap max snaplen */
@@ -62,7 +66,14 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
   /* if the packet original size is larger than the included length, then
      the included length should be limited by the files snap length */
   if (conint(hdr.orig_len) > conint(hdr.incl_len)) {
-    if (conint(hdr.incl_len) != conint(global_hdr.snaplen)) return(-6);
+    /* check for dlt 119 == wlan */
+    if (global_hdr.network == 119) {
+      /* strange behavior for wlan: in some cases incl length seems to differ
+         not following the configured max snap length; this leads to dropping
+         valid wlan packets -> ignore this check for DLT 119 */
+    } else {
+      if (conint(hdr.incl_len) != conint(global_hdr.snaplen)) return(-7);
+    }
   }
 
   /* the included length CAN NOT be larger than the original length */
@@ -70,24 +81,24 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
   if (global_hdr.network == 113) {
     /* linux cooked headers are appended to packet length, but not to orig length
        so we need to remove it from incl_len before checking */
-    if (conint(hdr.incl_len)-16 > conint(hdr.orig_len)) return(-7);
-  } else if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-8);
+    if (conint(hdr.incl_len)-16 > conint(hdr.orig_len)) return(-8);
+  } else if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-9);
 
   /* check packet times (older) */
   if (soft_mode) {
     /* in soft mode, there is no limit for older packets */
   } else {
     /* in hard mode, packet must not be older than one day (related to prior packet) */
-    if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(-9);
+    if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(-10);
   }
 
   /* check packet times (younger) */
   if (soft_mode) {
     /* in soft mode, packet must not be younger than one day (related to prior packet) */
-    if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(-10);
+    if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(-11);
   } else {
     /* in hard mode, packets must not be younger than prior packet */
-    if ((prior_ts != 0) && (conint(hdr.ts_sec) < prior_ts)) return(-11);
+    if ((prior_ts != 0) && (conint(hdr.ts_sec) < prior_ts)) return(-12);
   }
 
   /* check for nano/microseconds (hard mode only) */
@@ -95,16 +106,11 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
     /* in hard mode */
     if (nanoseconds == 0) {
       /* usec (microseconds) must <= 1000000 */
-      if (conint(hdr.ts_usec) > 1000000) return(-12);
+      if (conint(hdr.ts_usec) > 1000000) return(-13);
     } else {
       /* usec (nanoseconds) must be <= 1000000000 */
-      if (conint(hdr.ts_usec) > 1000000000) return(-13);
+      if (conint(hdr.ts_usec) > 1000000000) return(-14);
     }
-  }
-
-  /* output warnings if occured */
-  if (!deep_scan && conint(hdr.incl_len) > conint(global_hdr.snaplen) && verbose) {
-    printf("[!] Packet capture length is larger than maximum size defined in global pcap header: %u > %u\n", conint(hdr.incl_len), conint(global_hdr.snaplen));
   }
 
   /* all conditions fullfilled ==> everything fine! */
