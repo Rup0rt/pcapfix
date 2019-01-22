@@ -21,11 +21,11 @@
 #define PF_PCAP
 
 #define PCAP_MAGIC 0xa1b2c3d4			/* the magic of the pcap global header (non swapped) */
-#define PCAP_MAGIC_SWAPPED 0xd4c3b2a1           /* the magic of the pcap global header (swapped) */
+#define PCAP_MAGIC_SWAPPED 0xd4c3b2a1		/* the magic of the pcap global header (non swapped) */
 #define PCAPNG_MAGIC 0x0a0d0d0a			/* the magic of the pcap global header (non swapped) */
 #define PCAP_NSEC_MAGIC 0xa1b23c4d		/* the magic of the pcap global header (nanoseconds - non swapped) */
 #define PCAP_EXT_MAGIC 0xa1b2cd34               /* the magic of the extended pcap global header (non swapped) */
-#define PCAP_EXT_MAGIC_SWAPPED 0x34cdb2a1       /* the magic of the extended pcap global header (swapped) */
+#define PCAP_EXT_MAGIC_SWAPPED 0x34cdb2a1	/* the magic of the extended pcap global header (non swapped) */
 #define PCAP_MAX_SNAPLEN 262144			/* the maximum snap length, should be 256K instead of 64K nowadays */
 
 /* Global header (http://v2.nat32.com/pcap.htm) */
@@ -47,13 +47,16 @@ struct packet_hdr_s {
   u_int32_t orig_len;       /* actual length of packet */
 };
 
-/* Extended Packet Header - UNUSED YET
+/* KUZNETZOV Packet Header
    http://tcpreplay.synfin.net/doxygen_yhsiam/tcpcapinfo_8c-source.html - is there an official documentation? */
-struct ext_packet_hdr_s {
-  struct packet_hdr_s ph;   /* the default pcap packet header */
-  int32_t index;	    /* some index */
-  u_int16_t protocol;       /* some protocol */
-  u_int8_t pkt_type;        /* some packet type */
+struct packet_hdr_kuznet_s {
+  u_int32_t ts_sec;         /* timestamp seconds */
+  u_int32_t ts_usec;        /* timestamp microseconds */
+  u_int32_t incl_len;       /* number of octets of packet saved in file */
+  u_int32_t orig_len;       /* actual length of packet */
+  int32_t index;
+  u_int16_t protocol;
+  u_int8_t pkt_type;
 };
 
 /*
@@ -109,5 +112,7 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
  *
  */
 int fix_pcap(FILE *pcap, FILE *pcap_fix);
+
+int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos);
 
 #endif

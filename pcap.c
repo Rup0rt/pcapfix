@@ -192,30 +192,15 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
  */
 int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   struct global_hdr_s global_hdr;		/* global header data */
-  struct packet_hdr_s packet_hdr;		/* packet header data */
-  struct packet_hdr_s next_packet_hdr;		/* next packet header data to look forward */
 
-  char hdrbuffer[sizeof(packet_hdr)*2];		/* the buffer that will be used to find a proper packet */
-  char buffer[PCAP_MAX_SNAPLEN];		/* the packet body */
-
-  // we use a buffer to cache 1mb of writing... this way writing is faster and
-  // we can read and write the file at the same time
+  /* we use a buffer to cache 1mb of writing... this way writing is faster and
+     we can read and write the file at the same time */
   char *writebuffer;
   uint64_t writepos = 0;
 
-  uint64_t pos = 0;			                  /* position of current packet header */
-  uint64_t nextpos = 0;			              /* possible position of next packets header */
-  uint64_t bytes;				              /* read/written bytes counter (unused yet) */
-  uint64_t filesize;                          /* filesize of input file in bytes */
-  unsigned int count;				          /* packet counter */
-  unsigned int step = 1;                      /* step counter for progress bar */
-  unsigned int last_correct_ts_sec = 0;		  /* timestamp of the last proper packet found (seconds) */
-  unsigned int last_correct_ts_usec = 0;	  /* timestamp of the last proper packet found (microseconds or nanoseconds) */
-  unsigned short hdr_integ;			          /* integrity counter of global header */
-
-  int ascii = 0;				              /* ascii counter for possible ascii-corrupted packets */
-  int corrupted = 0;				          /* corrupted packet counter for final output */
-  int res;					                  /* the result of the header check == the offset of body shifting */
+  uint64_t bytes;				/* read/written bytes counter */
+  uint64_t filesize;				/* filesize of input file in bytes */
+  unsigned short hdr_integ;			/* integrity counter of global header */
 
   /* init write buffer */
   writebuffer = malloc(1024000);
@@ -255,6 +240,15 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   } else if (global_hdr.magic_number == htonl(PCAP_NSEC_MAGIC)) {
     /* we got a classic pcap file that uses nanoseconds (swapped) */
     if (verbose) printf("[+] Magic number: 0x%x (SWAPPED - NANOSECONDS)\n", global_hdr.magic_number);
+    swapped = 1;
+    nanoseconds = 1;
+  } else if (global_hdr.magic_number == PCAP_EXT_MAGIC) {
+    /* we got a KUZNETZOV extended tcpdump magic (non swapped) */
+    if (verbose) printf("[+] Magic number: 0x%x (KUZNETZOV)\n", global_hdr.magic_number);
+    nanoseconds = 1;
+  } else if (global_hdr.magic_number == htonl(PCAP_EXT_MAGIC)) {
+    /* we got a KUZNETZOV extended tcpdump magic (swapped) */
+    if (verbose) printf("[+] Magic number: 0x%x (KUZNETZOV - SWAPPED)\n", global_hdr.magic_number);
     swapped = 1;
     nanoseconds = 1;
   } else {
@@ -355,6 +349,31 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   writepos += sizeof(global_hdr);
 
   /* END OF GLOBAL HEADER CHECK */
+
+  return(fix_pcap_packets(pcap, pcap_fix, filesize, global_hdr, hdr_integ, writebuffer, writepos));
+}
+
+int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos) {
+  struct packet_hdr_s packet_hdr;		/* packet header data */
+  struct packet_hdr_s next_packet_hdr;		/* next packet header data to look forward */
+  char hdrbuffer[sizeof(packet_hdr)*2];		/* the buffer that will be used to find a proper packet */
+
+  char buffer[PCAP_MAX_SNAPLEN];		/* the packet body */
+  uint64_t bytes;				/* read/written bytes counter */
+
+  unsigned int count;				/* packet counter */
+  unsigned int step = 1;			/* step counter for progress bar */
+
+  uint64_t pos = 0;				/* position of current packet header */
+  uint64_t nextpos = 0;			        /* possible position of next packets header */
+
+  unsigned int last_correct_ts_sec = 0;		/* timestamp of the last proper packet found (seconds) */
+  unsigned int last_correct_ts_usec = 0;	/* timestamp of the last proper packet found (microseconds or nanoseconds) */
+
+  int ascii = 0;				/* ascii counter for possible ascii-corrupted packets */
+  int corrupted = 0;				/* corrupted packet counter for final output */
+
+  int res;					/* the result of the header check == the offset of body shifting */
 
   /* BEGIN PACKET CHECK */
 
