@@ -1,8 +1,9 @@
 pcapfix Changelog
 *****************
 
-1.1.3 - 21.01.2019
+1.1.4 - 22.01.2019
 ------------------
+* added support for extended pcap file format (kuznetzov)
 * fixed dtl 113 (linux cooked) handling (thanks to Andre Luyer)
 * improved hard and soft mode checks for younger/older packets
 * minor fixes and improvements
