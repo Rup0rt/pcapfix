@@ -577,6 +577,9 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         if (bytes != 1) return -3;
         left -= sizeof(spb);
 
+        /* output data */
+        if (verbose >= 1) printf("[*] SPB original packet length: %u bytes\n", spb.len);
+
         /* copy simple packet block into repaired file */
         memcpy(new_block+block_pos, &spb, sizeof(spb));
         block_pos += sizeof(spb);
@@ -1451,9 +1454,10 @@ int find_valid_block(FILE *pcap, uint64_t filesize) {
   uint64_t i;
   unsigned int bytes;
   unsigned int check;                       /* variable to check end of blocks sizes */
-  struct block_header bh;
+  struct block_header bh;                   /* block header */
   struct packet_block pb;                   /* Packet Block */
   struct name_resolution_block nrb;         /* Name Resolution Block */
+  struct simple_packet_block spb;           /* Simple Packet Block */
 
   /* bytewise processing of input file */
   for (i=ftello(pcap)-4; i<filesize; i++) {
@@ -1487,6 +1491,12 @@ int find_valid_block(FILE *pcap, uint64_t filesize) {
       if (bh.block_type == TYPE_SPB) {
         /* max size check */
         if (bh.total_length > PCAPNG_MAX_SNAPLEN) continue;
+
+        bytes = fread(&spb, sizeof(spb), 1, pcap);
+        if (bytes != 1) return(-1);
+
+        /* check original packet lengths <= MAX_SNAPLEN */
+        if (spb.len > PCAPNG_MAX_SNAPLEN) continue;
       }
 
       /* Name Resolution Block Checks:
