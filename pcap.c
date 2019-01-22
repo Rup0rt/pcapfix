@@ -544,6 +544,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
           res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &packet_hdr);
           if (res != 0) {
             printf("[-] Cannot align last packet, because it is broken.\n");
+            corrupted++;
             count--;
             break;
           }
