@@ -117,6 +117,83 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
   return(0);
 }
 
+int is_plausible_kuznetzov(struct global_hdr_s global_hdr, struct packet_hdr_kuznet_s hdr, unsigned int prior_ts) {
+  /* check for minimum packet size
+   * minimum packet size should be 16, but in some cases, e.g. local wlan capture, packet might
+   * even be smaller --> decreased minimum size to 10 */
+  if (conint(hdr.incl_len) < 10) return(-1);
+  if (conint(hdr.orig_len) < 10) return(-2);
+
+  /* check packet limit with header field and max snaplen
+     in soft mode (and dlt 119) the packet detection accepts a wider range */
+  if (soft_mode || global_hdr.network == 119) {
+    /* in soft mode, global pcap snap length is ignored, instead MAX snaplen is used */
+
+    /* strange behavior for wlan: in some cases incl length seems to differ
+       not following the configured max snap length; this leads to dropping
+       valid wlan packets -> use soft mode for DLT 119 */
+    if (conint(hdr.incl_len) > PCAP_MAX_SNAPLEN) return(-3);
+  } else {
+    /* in hard mode (and not dlt 119), global pcap snap length is the limit in plausibility checks */
+    if (conint(hdr.incl_len) > conint(global_hdr.snaplen)) return(-4);
+  }
+  /* orig length should not be greater than pcap max snaplen */
+  if (conint(hdr.orig_len) > PCAP_MAX_SNAPLEN) return(-5);
+
+  /* if the packet original size is larger than the included length, then
+     the included length should be limited by the files snap length */
+  if (conint(hdr.orig_len) > conint(hdr.incl_len)) {
+    /* check for dlt 119 == wlan */
+    if (global_hdr.network == 119) {
+      /* strange behavior for wlan: in some cases incl length seems to differ
+         not following the configured max snap length; this leads to dropping
+         valid wlan packets -> ignore this check for DLT 119 */
+    } else {
+      if (conint(hdr.incl_len) != conint(global_hdr.snaplen)) return(-7);
+    }
+  }
+
+  /* the included length CAN NOT be larger than the original length */
+  /* check for LINKTYPE_LINUX_SLL (linux cooked) */
+  if (global_hdr.network == 113) {
+    /* linux cooked headers are appended to packet length, but not to orig length
+       so we need to remove it from incl_len before checking */
+    if (conint(hdr.incl_len)-16 > conint(hdr.orig_len)) return(-8);
+  } else if (conint(hdr.incl_len) > conint(hdr.orig_len)) return(-9);
+
+  /* check packet times (older) */
+  if (soft_mode) {
+    /* in soft mode, there is no limit for older packets */
+  } else {
+    /* in hard mode, packet must not be older than one day (related to prior packet) */
+    if ((prior_ts != 0) && (conint(hdr.ts_sec) > (prior_ts+86400))) return(-10);
+  }
+
+  /* check packet times (younger) */
+  if (soft_mode) {
+    /* in soft mode, packet must not be younger than one day (related to prior packet) */
+    if ((prior_ts >= 86400) && (conint(hdr.ts_sec) < (prior_ts-86400))) return(-11);
+  } else {
+    /* in hard mode, packets must not be younger than prior packet */
+    if ((prior_ts != 0) && (conint(hdr.ts_sec) < prior_ts)) return(-12);
+  }
+
+  /* check for nano/microseconds (hard mode only) */
+  if (!soft_mode) {
+    /* in hard mode */
+    if (nanoseconds == 0) {
+      /* usec (microseconds) must <= 1000000 */
+      if (conint(hdr.ts_usec) > 1000000) return(-13);
+    } else {
+      /* usec (nanoseconds) must be <= 1000000000 */
+      if (conint(hdr.ts_usec) > 1000000000) return(-14);
+    }
+  }
+
+  /* all conditions fullfilled ==> everything fine! */
+  return(0);
+}
+
 /*
  * Function:  check_header
  * -----------------------
@@ -162,6 +239,49 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
 
       /* and invoke the header again without this 0x0D byte */
       res = check_header(tmp, size-1, prior_ts, global_hdr, hdr);
+
+      /* free recursion buffer */
+      free(tmp);
+
+      /* if the check was successfull (maybe with multiple recursions) return the value added by one (body shift offset) */
+      if (res != -1) return(res+1);
+    }
+  }
+
+  /* the buffer (even after ascii corruption brute force) does not contain any valid pcap packet header */
+  return(-1);
+}
+
+int check_header_kuznetzov(char *buffer, unsigned int size, unsigned int prior_ts, struct global_hdr_s *global_hdr, struct packet_hdr_kuznet_s *hdr) {
+  unsigned int i; /* loop variable - first byte in buffer that could be beginning of packet */
+  int res;        /* return value */
+  char *tmp;      /* the temporary buffer that will be used for recursion */
+
+  /* does the buffer already contain a valid packet header (without any correction) ?? */
+  memcpy(hdr, buffer, sizeof(struct packet_hdr_kuznet_s));
+  res = is_plausible_kuznetzov(*global_hdr, *hdr, prior_ts);
+  if (res == 0) return(0);
+
+  if (verbose >= 2) printf("[-] Header plausibility check failed with error code %d\n", res);
+
+  /* we need to abort the recursion of there are too many possible ascii corrupted bytes at ones */
+  /* 32-25 = 7 bytes maximum in 32bytes of data! */
+  if (size <= 25) return(-1);
+
+  /* this loop will check the the buffer for occurence of 0x0D + 0x0A (UNIX to WINDOWS ascii corruption) */
+  for(i=0; i<sizeof(struct packet_hdr_kuznet_s); i++) {
+    /* is there a 0x0D 0X0A combination at this position? */
+    if (buffer[i] == 0x0D && buffer[i+1] == 0x0A) {
+
+      /* allocate memory for recursion buffer */
+      tmp = malloc(size);
+
+      /* we cut out 0x0D because this byte could have been added due to ftp ascii transfer eg */
+      memcpy(tmp, buffer, i);
+      memcpy(tmp+i, buffer+i+1, size-i-1);
+
+      /* and invoke the header again without this 0x0D byte */
+      res = check_header_kuznetzov(tmp, size-1, prior_ts, global_hdr, hdr);
 
       /* free recursion buffer */
       free(tmp);
@@ -350,7 +470,14 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
   /* END OF GLOBAL HEADER CHECK */
 
-  return(fix_pcap_packets(pcap, pcap_fix, filesize, global_hdr, hdr_integ, writebuffer, writepos));
+  /* decide whether to chose pcap or extended pcap packet repair */
+  switch (global_hdr.magic_number) {
+    case PCAP_EXT_MAGIC:
+    case PCAP_EXT_MAGIC_SWAPPED:
+      return(fix_pcap_packets_kuznetzov(pcap, pcap_fix, filesize, global_hdr, hdr_integ, writebuffer, writepos));
+    default:
+      return(fix_pcap_packets(pcap, pcap_fix, filesize, global_hdr, hdr_integ, writebuffer, writepos));
+  }
 }
 
 int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos) {
@@ -425,17 +552,17 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
 
       /* realign packet body (based on possible-ascii corrupted pcap header) */
       pos += res;
-      fseeko(pcap, pos+16, SEEK_SET);
+      fseeko(pcap, pos+sizeof(packet_hdr), SEEK_SET);
 
       /* try to read the packet body AND check if there are still at least 16 bytes left for the next pcap packet header */
-      if ((fread(&buffer, conint(packet_hdr.incl_len), 1, pcap) == 0) || ((filesize-(pos+16+conint(packet_hdr.incl_len)) > 0) && (filesize-(pos+16+conint(packet_hdr.incl_len)) < 16))) {
+      if ((fread(&buffer, conint(packet_hdr.incl_len), 1, pcap) == 0) || ((filesize-(pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len)) > 0) && (filesize-(pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len)) < sizeof(packet_hdr)))) {
         /* fread returned an error (EOL while read the body) or the file is not large enough for the next pcap packet header (16bytes) */
         /* thou the last packet has been cut of */
 
         if (verbose >= 1) printf("[-] LAST PACKET MISMATCH (%u | %u | %u | %u)\n", conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
 
         /* correct the packets included length field to match the end of file */
-        packet_hdr.incl_len = conint(filesize-pos-16);
+        packet_hdr.incl_len = conint(filesize-pos-sizeof(packet_hdr));
 
         /* the original length must not be smaller than the included length */
         if (conint(packet_hdr.incl_len) > conint(packet_hdr.orig_len)) packet_hdr.orig_len = packet_hdr.incl_len;
@@ -457,7 +584,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
         /* the next packets header is corrupted thou we are going to scan through the prior packets body to look for an overlapped packet header
          * also look inside the next packets header + 16bytes of packet body, because we need to know HERE
          * do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
-        for (nextpos=pos+16+1; (nextpos < pos+16+conint(packet_hdr.incl_len)+32) || (count == 1 && deep_scan == 1); nextpos++) {
+        for (nextpos=pos+sizeof(packet_hdr)+1; (nextpos < pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len)+2*sizeof(packet_hdr)) || (count == 1 && deep_scan == 1); nextpos++) {
 
           /* read the possible next packets header */
           fseeko(pcap, nextpos, SEEK_SET);
@@ -477,7 +604,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
             if (verbose >= 1) printf("[-] FOUND OVERLAPPING data of Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
             /* correct the prior packets length information fields to align the overlapped packet */
-            packet_hdr.incl_len = conint(nextpos-(pos+16)+res);	/* also include ascii corruption offset (res) */
+            packet_hdr.incl_len = conint(nextpos-(pos+sizeof(packet_hdr))+res);	/* also include ascii corruption offset (res) */
             packet_hdr.orig_len = packet_hdr.incl_len;
 
             /* time correction for the FIRST packet only */
@@ -510,7 +637,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
       }
 
       /* reset file fointer to next packet */
-      fseeko(pcap, pos+16+conint(packet_hdr.incl_len), SEEK_SET);
+      fseeko(pcap, pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len), SEEK_SET);
 
       /* we found a correct packet (and aligned it maybe) */
       if (verbose >= 1) printf("[+] Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
@@ -542,7 +669,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
 
       /* scan from the current position to the maximum packet size and look for a next proper packet header to align the corrupted packet
        * also do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
-      for (nextpos=pos+16+1; (nextpos <= pos+16+PCAP_MAX_SNAPLEN) || (count == 1 && deep_scan == 1); nextpos++) {
+      for (nextpos=pos+sizeof(packet_hdr)+1; (nextpos <= pos+sizeof(packet_hdr)+PCAP_MAX_SNAPLEN) || (count == 1 && deep_scan == 1); nextpos++) {
 
         /* read the possible next packets header */
         fseeko(pcap, nextpos, SEEK_SET);
@@ -571,7 +698,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
           /* check passed */
 
           /* align the last packet to match EOF */
-          packet_hdr.incl_len = conint(filesize-(pos+16));
+          packet_hdr.incl_len = conint(filesize-(pos+sizeof(packet_hdr)));
           packet_hdr.orig_len = packet_hdr.incl_len;
 
           /* if the is the first packet, we need to set timestamps to zero */
@@ -584,7 +711,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
           }
 
           /* read the packets body (size based on the just found next packets position) */
-          fseeko(pcap, pos+16, SEEK_SET);
+          fseeko(pcap, pos+sizeof(packet_hdr), SEEK_SET);
           bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
           // check if there is enough space in buffer
@@ -622,7 +749,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
         if (res != -1) {
 
           /* if we found a packet that is below the top MAX_SNAPLEN bytes (deep scan) we cut it off and take the second packet as first one */
-          if ((nextpos-(pos+16) > PCAP_MAX_SNAPLEN) && (count == 1) && (deep_scan == 1)) {
+          if ((nextpos-(pos+sizeof(packet_hdr)) > PCAP_MAX_SNAPLEN) && (count == 1) && (deep_scan == 1)) {
 
             if (verbose >= 1) printf("[+] (DEEP SCAN) FOUND FIRST Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
@@ -638,7 +765,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
             if (verbose >= 1) printf("[+] FOUND NEXT Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
             /* correct the corrupted pcap packet header to match the just found next packet header */
-            packet_hdr.incl_len = conint(nextpos-(pos+16));
+            packet_hdr.incl_len = conint(nextpos-(pos+sizeof(packet_hdr)));
             packet_hdr.orig_len = packet_hdr.incl_len;
 
             if (count == 1) { /* time correction for the FIRST packet */
@@ -661,7 +788,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
             }
 
             /* read the packets body (size based on the just found next packets position) */
-            fseeko(pcap, pos+16, SEEK_SET);
+            fseeko(pcap, pos+sizeof(packet_hdr), SEEK_SET);
             bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
             /* final check resulting packet for plausibility */
@@ -708,7 +835,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
       if (corrupted == -1) break;
 
       /* did the counter exceed the maximum packet size? */
-      if ((count == 1 && deep_scan == 0) && (nextpos > pos+16+PCAP_MAX_SNAPLEN)) {
+      if ((count == 1 && deep_scan == 0) && (nextpos > pos+sizeof(packet_hdr)+PCAP_MAX_SNAPLEN)) {
 
         /* PACKET COULD NOT BE REPAIRED! */
 
@@ -717,7 +844,445 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
       }
 
       /* maximum search range reached? -> skip packet and keep on searching */
-      if (deep_scan == 0 && (nextpos > pos+16+PCAP_MAX_SNAPLEN)) {
+      if (deep_scan == 0 && (nextpos > pos+sizeof(packet_hdr)+PCAP_MAX_SNAPLEN)) {
+        if (verbose >= 1) printf("[-] No next packet found within max packet range --> SKIPPING!\n");
+
+        /* reset counter because no packet found */
+        count--;
+      }
+
+    }
+
+    /* get current file pointer position to start next loop iteration */
+    pos = ftello(pcap);
+
+  }
+
+  // write remaining data into buffer
+  bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+  writepos = 0;
+
+  if (verbose == 0) { print_progress(pos, filesize); }
+
+  /* did we reach the end of pcap file? */
+  if (pos != filesize) { /* no ==> data missing == FAILED */
+    printf("[-] Reached EOF without finding more packets!\n");
+    corrupted = -1;	/* the file could not be repaired */
+  }
+
+  /* END PACKET CHECK */
+
+  /* EVALUATE RESULT */
+
+  if ((hdr_integ == 0) && (corrupted == 0)) { /* check allover failure / integrity count and corrupted counter */
+
+   /* no errors (header + packets correct) */
+   return(0);
+
+  } else if (corrupted == -1) {	/* check vor very high packet failure value ==> no recovery possible */
+
+    /* file could NOT be repaired */
+
+    if (count == 1) {
+
+      /* even the first packet was corrupted and no other packet could be found */
+      return(-1);
+
+    } else {
+
+      /* the first packet was intact, but recovery is not possible nevertheless */
+      return(-2);
+
+    }
+
+  } else {
+    /* check if we found at least one packet */
+    if (count == 1) {
+      /* even the first packet was corrupted and no other packet could be found */
+      return(-1);
+    }
+
+    /* file has been successfully repaired (corruption fixed) */
+
+    printf("[*] Wrote %u packets to file.\n", count-1);
+
+    /* are there any packets that might have been transferred in ascii mode? */
+    if (ascii) {
+      printf("[!] This corruption seems to be a result of an ascii-mode transferred pcap file via FTP.\n");
+      printf("[!] The pcap structure of those files can be repaired, but the data inside might still be corrupted!\n");
+    }
+
+    return(hdr_integ+corrupted);
+
+  }
+
+}
+
+int fix_pcap_packets_kuznetzov(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos) {
+  struct packet_hdr_kuznet_s packet_hdr;	/* packet header data */
+  struct packet_hdr_kuznet_s next_packet_hdr;	/* next packet header data to look forward */
+  char hdrbuffer[sizeof(packet_hdr)*2];		/* the buffer that will be used to find a proper packet */
+
+  char buffer[PCAP_MAX_SNAPLEN];		/* the packet body */
+  uint64_t bytes;				/* read/written bytes counter */
+
+  unsigned int count;				/* packet counter */
+  unsigned int step = 1;			/* step counter for progress bar */
+
+  uint64_t pos = 0;				/* position of current packet header */
+  uint64_t nextpos = 0;			        /* possible position of next packets header */
+
+  unsigned int last_correct_ts_sec = 0;		/* timestamp of the last proper packet found (seconds) */
+  unsigned int last_correct_ts_usec = 0;	/* timestamp of the last proper packet found (microseconds or nanoseconds) */
+
+  int ascii = 0;				/* ascii counter for possible ascii-corrupted packets */
+  int corrupted = 0;				/* corrupted packet counter for final output */
+
+  int res;					/* the result of the header check == the offset of body shifting */
+
+  /* BEGIN PACKET CHECK */
+
+  printf("[*] Analyzing packets...\n");
+
+  /* this loop iterates the packets from top till down by checking the
+   * pcap packet headers on plausibility. if any packet header has got
+   * implausible information the packet will be handled as corrupted
+   * and pcapfix will brute force the next packet. if the packet header
+   * look plausible, pcapfix will check if the next packet is aligned and
+   * if not check for overlapping packets.
+   */
+
+  /* get current file pointer position */
+  pos = ftello(pcap);
+
+  /* loop the pcap files packets until pos has reacher end of file */
+  for (count=1; pos < filesize; count++) {
+
+    /* we only want the progress bar to be printed in non-verbose mode */
+    if ((verbose == 0) && (5*(float)pos/(float)filesize > step)) {
+      print_progress(pos, filesize);
+      step++;
+    }
+
+    /* check if a pcap packet header would fit into the file */
+    if (pos + sizeof(hdrbuffer) > filesize) {
+      printf("[-] Not enough bytes left in file ==> SKIPPING %" PRIu64 " bytes.\n", filesize-pos);
+      corrupted++;
+
+      /* at least one packet has been found?? */
+      if (count == 1) {
+        printf("[-] No packet has been found!\n");
+        return(-2);
+      }
+
+      /* end of file reached */
+      pos = filesize;
+      break;
+    }
+
+    /* read the next packet header */
+    bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
+    if (bytes != 1) return -3;
+
+    /* check if the packet header looks proper */
+    res = check_header_kuznetzov(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &packet_hdr);
+    if (res != -1) {
+
+      /* realign packet body (based on possible-ascii corrupted pcap header) */
+      pos += res;
+      fseeko(pcap, pos+sizeof(packet_hdr), SEEK_SET);
+
+      /* try to read the packet body AND check if there are still at least 24 bytes left for the next pcap packet header */
+      if ((fread(&buffer, conint(packet_hdr.incl_len), 1, pcap) == 0) || ((filesize-(pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len)) > 0) && (filesize-(pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len)) < sizeof(packet_hdr)))) {
+        /* fread returned an error (EOL while read the body) or the file is not large enough for the next pcap packet header (24bytes) */
+        /* thou the last packet has been cut of */
+
+        if (verbose >= 1) printf("[-] LAST PACKET MISMATCH (%u | %u | %u | %u)\n", conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+
+        /* correct the packets included length field to match the end of file */
+        packet_hdr.incl_len = conint(filesize-pos-sizeof(packet_hdr));
+
+        /* the original length must not be smaller than the included length */
+        if (conint(packet_hdr.incl_len) > conint(packet_hdr.orig_len)) packet_hdr.orig_len = packet_hdr.incl_len;
+
+        /* print out information */
+        printf("[+] CORRECTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+        corrupted++;
+      }
+
+      /* OVERLAPPING DETECTION */
+      /* we do ONLY scan for overlapping if next packet is NOT aligned */
+
+      /* read next packet header */
+      bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
+
+      /* check if next packets header looks proper */
+      if (check_header_kuznetzov(hdrbuffer, sizeof(hdrbuffer), conint(packet_hdr.ts_sec), &global_hdr, &next_packet_hdr) == -1) {
+
+        /* the next packets header is corrupted thou we are going to scan through the prior packets body to look for an overlapped packet header
+         * also look inside the next packets header + 24bytes of packet body, because we need to know HERE
+         * do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
+        for (nextpos=pos+sizeof(packet_hdr)+1; (nextpos < pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len)+2*sizeof(packet_hdr)) || (count == 1 && deep_scan == 1); nextpos++) {
+
+          /* read the possible next packets header */
+          fseeko(pcap, nextpos, SEEK_SET);
+          bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
+
+          /* check read success */
+          if (bytes == 0) break;
+
+          /* heavy verbose output :-) */
+          if (verbose >= 2) printf("[*] Trying Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
+
+          /* check the header for plausibility */
+          res = check_header_kuznetzov(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &next_packet_hdr);
+          if (res != -1) {
+
+            /* we found a proper header inside the packets body! */
+            if (verbose >= 1) printf("[-] FOUND OVERLAPPING data of Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
+
+            /* correct the prior packets length information fields to align the overlapped packet */
+            packet_hdr.incl_len = conint(nextpos-(pos+sizeof(packet_hdr))+res);	/* also include ascii corruption offset (res) */
+            packet_hdr.orig_len = packet_hdr.incl_len;
+
+            /* time correction for the FIRST packet only */
+            if (count == 1) {
+              if (conint(next_packet_hdr.ts_usec) > 0) {
+                /* next packets usec is > 0 ===> first packet will get same timestamp and usec - 1 */
+                packet_hdr.ts_sec = next_packet_hdr.ts_sec;
+                packet_hdr.ts_usec = conint(conint(next_packet_hdr.ts_usec)-1);
+              } else if(conint(next_packet_hdr.ts_sec) > 0) {
+                /* else: next packets timestamp i > 0 ===> firt packet will get timestamp -1 and maximum usec */
+                packet_hdr.ts_sec = conint(conint(next_packet_hdr.ts_sec)-1);
+                packet_hdr.ts_usec = conint(999999);
+              } else {
+                /* else: (next packets sec and usec are zero), this packet will get zero times as well */
+                packet_hdr.ts_sec = conint(0);
+                packet_hdr.ts_usec = conint(0);
+              }
+            }
+
+            /* print out information */
+            printf("[+] CORRECTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+            corrupted++;
+
+            /* overlapping seems to be a result of ascii-transferred pcap files via FTP */
+            ascii++;
+
+            break;
+          }
+        }
+      }
+
+      /* reset file fointer to next packet */
+      fseeko(pcap, pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len), SEEK_SET);
+
+      /* we found a correct packet (and aligned it maybe) */
+      if (verbose >= 1) printf("[+] Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+
+      /* write this packet */
+
+      // check if there is enough space in buffer
+      int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
+      if (writepos+totalsize > 1024000) {
+        bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+        writepos = 0;
+      }
+
+      // put new bytes into write buffer
+      memcpy(writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
+      writepos += sizeof(packet_hdr);
+      memcpy(writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
+      writepos += conint(packet_hdr.incl_len);
+
+      /* remember that this packets timestamp to evaluate futher timestamps */
+      last_correct_ts_sec = conint(packet_hdr.ts_sec);
+      last_correct_ts_usec = conint(packet_hdr.ts_usec);
+
+    } else {
+
+      /* PACKET IS CORRUPT */
+
+      if (verbose >= 1) printf("[-] CORRUPTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+
+      /* scan from the current position to the maximum packet size and look for a next proper packet header to align the corrupted packet
+       * also do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
+      for (nextpos=pos+sizeof(packet_hdr)+1; (nextpos <= pos+sizeof(packet_hdr)+PCAP_MAX_SNAPLEN) || (count == 1 && deep_scan == 1); nextpos++) {
+
+        /* read the possible next packets header */
+        fseeko(pcap, nextpos, SEEK_SET);
+        if (fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap) == 0) {
+
+          /* did we read over EOF AND havent found the first packet yet? then we need to abort! */
+          if ((count == 1) && (deep_scan == 1)) {
+
+            /* abort scan */
+            pos = 0;
+            corrupted = -1;
+            break;
+          }
+
+          printf("[*] End of file reached. Aligning last packet.\n");
+
+          /* check last packet for plausiblilty */
+          res = check_header_kuznetzov(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &packet_hdr);
+          if (res != 0) {
+            printf("[-] Cannot align last packet, because it is broken.\n");
+            corrupted++;
+            count--;
+            break;
+          }
+
+          /* check passed */
+
+          /* align the last packet to match EOF */
+          packet_hdr.incl_len = conint(filesize-(pos+sizeof(packet_hdr)));
+          packet_hdr.orig_len = packet_hdr.incl_len;
+
+          /* if the is the first packet, we need to set timestamps to zero */
+          if (count == 1) {
+            packet_hdr.ts_sec = conint(0);
+            packet_hdr.ts_usec = conint(0);
+          } else {	/* else take the last correct timestamp and usec plus one */
+            packet_hdr.ts_sec = conint(last_correct_ts_sec);
+            packet_hdr.ts_usec = conint(last_correct_ts_usec+1);
+          }
+
+          /* read the packets body (size based on the just found next packets position) */
+          fseeko(pcap, pos+sizeof(packet_hdr), SEEK_SET);
+          bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
+
+          // check if there is enough space in buffer
+          int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
+          if (writepos+totalsize > 1024000) {
+            bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+            writepos = 0;
+          }
+
+          // put new bytes into write buffer
+          memcpy(writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
+          writepos += sizeof(packet_hdr);
+          memcpy(writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
+          writepos += conint(packet_hdr.incl_len);
+
+          /* remember that this packets timestamp to evaluate futher timestamps */
+          last_correct_ts_sec = packet_hdr.ts_sec;
+          last_correct_ts_usec = packet_hdr.ts_usec;
+
+          /* print out information */
+          printf("[+] CORRECTED LAST Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+          corrupted++;
+
+          break;
+        }
+
+        /* shall we abort the whole scan?? */
+        if (corrupted == -1) break;
+
+        /* heavy verbose output :-) */
+        if (verbose >= 2) printf("[*] Trying Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
+
+        /* check if next packets header looks proper */
+        res = check_header_kuznetzov(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &next_packet_hdr);
+        if (res != -1) {
+
+          /* if we found a packet that is below the top MAX_SNAPLEN bytes (deep scan) we cut it off and take the second packet as first one */
+          if ((nextpos-(pos+sizeof(packet_hdr)) > PCAP_MAX_SNAPLEN) && (count == 1) && (deep_scan == 1)) {
+
+            if (verbose >= 1) printf("[+] (DEEP SCAN) FOUND FIRST Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
+
+            /* set the filepoint to the top of the first packet to be read in next loop iteration */
+            fseeko(pcap, nextpos, SEEK_SET);
+
+            /* correct counter due to deep scan */
+            count--;
+
+          } else { /* found next packet (NO deep scan mode) */
+
+            /* we found the NEXT packets header, now we are able to align the corrupted packet */
+            if (verbose >= 1) printf("[+] FOUND NEXT Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
+
+            /* correct the corrupted pcap packet header to match the just found next packet header */
+            packet_hdr.incl_len = conint(nextpos-(pos+sizeof(packet_hdr)));
+            packet_hdr.orig_len = packet_hdr.incl_len;
+
+            if (count == 1) { /* time correction for the FIRST packet */
+              if (conint(next_packet_hdr.ts_usec) > 0) {
+                /* next packets usec is > 0 ===> first packet will get same timestamp and usec - 1 */
+                packet_hdr.ts_sec = next_packet_hdr.ts_sec;
+                packet_hdr.ts_usec = conint(conint(next_packet_hdr.ts_usec)-1);
+              } else if(conint(next_packet_hdr.ts_sec) > 0) {
+                /* else: next packets timestamp i > 0 ===> firt packet will get timestamp -1 and maximum usec */
+                packet_hdr.ts_sec = conint(conint(next_packet_hdr.ts_sec)-1);
+                packet_hdr.ts_usec = conint(999999);
+              } else {
+                /* else: (next packets sec and usec are zero), this packet will get zero times as well */
+                packet_hdr.ts_sec = conint(0);
+                packet_hdr.ts_usec = conint(0);
+              }
+            } else { /* ALL packets except the first one will use the last correct packets timestamps */
+              packet_hdr.ts_sec = conint(last_correct_ts_sec);
+              packet_hdr.ts_usec = conint(last_correct_ts_usec+1);
+            }
+
+            /* read the packets body (size based on the just found next packets position) */
+            fseeko(pcap, pos+sizeof(packet_hdr), SEEK_SET);
+            bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
+
+            /* final check resulting packet for plausibility */
+            res = is_plausible_kuznetzov(global_hdr, packet_hdr, last_correct_ts_sec);
+            if (res == 0) {
+
+              // check if there is enough space in buffer
+              int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
+              if (writepos+totalsize > 1024000) {
+                bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+                writepos = 0;
+              }
+
+              // put new bytes into write buffer
+              memcpy(writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
+              writepos += sizeof(packet_hdr);
+              memcpy(writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
+              writepos += conint(packet_hdr.incl_len);
+
+              /* remember that this packets timestamp to evaluate futher timestamps */
+              last_correct_ts_sec = conint(packet_hdr.ts_sec);
+              last_correct_ts_usec = conint(packet_hdr.ts_usec);
+
+              /* print out information */
+              printf("[+] CORRECTED Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
+
+            } else {
+              /* prior packet is invalid */
+              printf("[-] Packet #%u at position %" PRIu64 " is invalid ==> SKIPPING.\n", count, pos);
+            }
+
+          }
+
+          /* increase corruption counter */
+          corrupted++;
+
+          /* leave the next packet search loop */
+          break;
+        }
+
+      }
+
+      /* shall we abort the whole scan (due to deep scan did not succeed at all) */
+      if (corrupted == -1) break;
+
+      /* did the counter exceed the maximum packet size? */
+      if ((count == 1 && deep_scan == 0) && (nextpos > pos+sizeof(packet_hdr)+PCAP_MAX_SNAPLEN)) {
+
+        /* PACKET COULD NOT BE REPAIRED! */
+
+        if (verbose >= 1) printf("[-] Cannot align corrupted packet! \n");
+        break;
+      }
+
+      /* maximum search range reached? -> skip packet and keep on searching */
+      if (deep_scan == 0 && (nextpos > pos+sizeof(packet_hdr)+PCAP_MAX_SNAPLEN)) {
         if (verbose >= 1) printf("[-] No next packet found within max packet range --> SKIPPING!\n");
 
         /* reset counter because no packet found */

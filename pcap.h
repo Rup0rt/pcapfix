@@ -96,6 +96,8 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
  */
 int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct global_hdr_s *global_hdr, struct packet_hdr_s *hdr);
 
+int check_header_kuznetzov(char *buffer, unsigned int size, unsigned int prior_ts, struct global_hdr_s *global_hdr, struct packet_hdr_kuznet_s *hdr);
+
 /*
  * Function:  fix_pcap
  * -------------------
@@ -114,5 +116,7 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
 int fix_pcap(FILE *pcap, FILE *pcap_fix);
 
 int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos);
+
+int fix_pcap_packets_kuznetzov(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos);
 
 #endif
