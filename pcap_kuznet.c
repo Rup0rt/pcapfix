@@ -18,10 +18,7 @@
  ******************************************************************************/
 
 #include "pcapfix.h"
-#include "pcap.h"
-
-/* pcap file global vars */
-int nanoseconds = 0;            /* pcap file uses nanoseconds (instead of microseconds) */
+#include "pcap_kuznet.h"
 
 /*
  * Function:  is_plausible
@@ -41,7 +38,7 @@ int nanoseconds = 0;            /* pcap file uses nanoseconds (instead of micros
  *          -X   error (condition X failed)
  *
  */
-int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsigned int prior_ts) {
+int is_plausible_kuznetzov(struct global_hdr_s global_hdr, struct packet_hdr_kuznet_s hdr, unsigned int prior_ts) {
   /* check for minimum packet size
    * minimum packet size should be 16, but in some cases, e.g. local wlan capture, packet might
    * even be smaller --> decreased minimum size to 10 */
@@ -105,13 +102,9 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
   /* check for nano/microseconds (hard mode only) */
   if (!soft_mode) {
     /* in hard mode */
-    if (nanoseconds == 0) {
-      /* usec (microseconds) must <= 1000000 */
-      if (conint(hdr.ts_usec) > 1000000) return(-13);
-    } else {
-      /* usec (nanoseconds) must be <= 1000000000 */
-      if (conint(hdr.ts_usec) > 1000000000) return(-14);
-    }
+    /* usec (microseconds) must <= 1000000 */
+    /* kuznetzov never uses nanoseconds */
+    if (conint(hdr.ts_usec) > 1000000) return(-13);
   }
 
   /* all conditions fullfilled ==> everything fine! */
@@ -133,14 +126,14 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
  *           -1   error (no valid pcap header found inside buffer)
  *
  */
-int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct global_hdr_s *global_hdr, struct packet_hdr_s *hdr) {
+int check_header_kuznetzov(char *buffer, unsigned int size, unsigned int prior_ts, struct global_hdr_s *global_hdr, struct packet_hdr_kuznet_s *hdr) {
   unsigned int i; /* loop variable - first byte in buffer that could be beginning of packet */
   int res;        /* return value */
   char *tmp;      /* the temporary buffer that will be used for recursion */
 
   /* does the buffer already contain a valid packet header (without any correction) ?? */
-  memcpy(hdr, buffer, sizeof(struct packet_hdr_s));
-  res = is_plausible(*global_hdr, *hdr, prior_ts);
+  memcpy(hdr, buffer, sizeof(struct packet_hdr_kuznet_s));
+  res = is_plausible_kuznetzov(*global_hdr, *hdr, prior_ts);
   if (res == 0) return(0);
 
   if (verbose >= 2) printf("[-] Header plausibility check failed with error code %d\n", res);
@@ -150,7 +143,7 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
   if (size <= 25) return(-1);
 
   /* this loop will check the the buffer for occurence of 0x0D + 0x0A (UNIX to WINDOWS ascii corruption) */
-  for(i=0; i<sizeof(struct packet_hdr_s); i++) {
+  for(i=0; i<sizeof(struct packet_hdr_kuznet_s); i++) {
     /* is there a 0x0D 0X0A combination at this position? */
     if (buffer[i] == 0x0D && buffer[i+1] == 0x0A) {
 
@@ -162,7 +155,7 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
       memcpy(tmp+i, buffer+i+1, size-i-1);
 
       /* and invoke the header again without this 0x0D byte */
-      res = check_header(tmp, size-1, prior_ts, global_hdr, hdr);
+      res = check_header_kuznetzov(tmp, size-1, prior_ts, global_hdr, hdr);
 
       /* free recursion buffer */
       free(tmp);
@@ -191,7 +184,7 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
  *          -3   error (EOF reached while reading input file)
  *
  */
-int fix_pcap(FILE *pcap, FILE *pcap_fix) {
+int fix_pcap_kuznetzov(FILE *pcap, FILE *pcap_fix) {
   struct global_hdr_s global_hdr;		/* global header data */
 
   /* we use a buffer to cache 1mb of writing... this way writing is faster and
@@ -227,29 +220,20 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   hdr_integ = 0;
 
   /* check for pcap's magic bytes () */
-  if (global_hdr.magic_number == PCAP_MAGIC) {
-    /* we got a classic pcap file (non swapped) */
-    if (verbose) printf("[+] Magic number: 0x%x\n", global_hdr.magic_number);
-  } else if (global_hdr.magic_number == htonl(PCAP_MAGIC)) {
-    /* we got a classic pcap file (swapped) */
-    if (verbose) printf("[+] Magic number: 0x%x (SWAPPED)\n", global_hdr.magic_number);
+  if (global_hdr.magic_number == PCAP_EXT_MAGIC) {
+    /* we got a KUZNETZOV extended tcpdump magic (non swapped) */
+    if (verbose) printf("[+] Magic number: 0x%x (KUZNETZOV)\n", global_hdr.magic_number);
+  } else if (global_hdr.magic_number == htonl(PCAP_EXT_MAGIC)) {
+    /* we got a KUZNETZOV extended tcpdump magic (swapped) */
+    if (verbose) printf("[+] Magic number: 0x%x (KUZNETZOV - SWAPPED)\n", global_hdr.magic_number);
     swapped = 1;
-  } else if (global_hdr.magic_number == PCAP_NSEC_MAGIC) {
-    /* we got a classic pcap file that uses nanoseconds (non swapped) */
-    if (verbose) printf("[+] Magic number: 0x%x (NANOSECONDS)\n", global_hdr.magic_number);
-    nanoseconds = 1;
-  } else if (global_hdr.magic_number == htonl(PCAP_NSEC_MAGIC)) {
-    /* we got a classic pcap file that uses nanoseconds (swapped) */
-    if (verbose) printf("[+] Magic number: 0x%x (SWAPPED - NANOSECONDS)\n", global_hdr.magic_number);
-    swapped = 1;
-    nanoseconds = 1;
   } else {
     /* we are not able to determine the pcap magic */
     hdr_integ++;
     if (verbose) printf("[-] Magic number: 0x%x\n", global_hdr.magic_number);
 
-    /* assume input file is a classic pcap file (NO nanoseconds, NOT swapped) */
-    global_hdr.magic_number = PCAP_MAGIC;
+    /* in this special case of kuznetzov, we do not try to assume it is a pcap file */
+    return(-1);
   }
 
   /* check for major version number (2) */
@@ -342,8 +326,8 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
 
   /* END OF GLOBAL HEADER CHECK */
 
-  /* start checking packets now */
-  return(fix_pcap_packets(pcap, pcap_fix, filesize, global_hdr, hdr_integ, writebuffer, writepos));
+  /* start handling packets */
+  return(fix_pcap_packets_kuznetzov(pcap, pcap_fix, filesize, global_hdr, hdr_integ, writebuffer, writepos));
 }
 
 /*
@@ -366,9 +350,9 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
  *          -3   error (EOF reached while reading input file)
  *
  */
-int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos) {
-  struct packet_hdr_s packet_hdr;		/* packet header data */
-  struct packet_hdr_s next_packet_hdr;		/* next packet header data to look forward */
+int fix_pcap_packets_kuznetzov(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos) {
+  struct packet_hdr_kuznet_s packet_hdr;	/* packet header data */
+  struct packet_hdr_kuznet_s next_packet_hdr;	/* next packet header data to look forward */
   char hdrbuffer[sizeof(packet_hdr)*2];		/* the buffer that will be used to find a proper packet */
 
   char buffer[PCAP_MAX_SNAPLEN];		/* the packet body */
@@ -433,16 +417,16 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
     if (bytes != 1) return -3;
 
     /* check if the packet header looks proper */
-    res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &packet_hdr);
+    res = check_header_kuznetzov(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &packet_hdr);
     if (res != -1) {
 
       /* realign packet body (based on possible-ascii corrupted pcap header) */
       pos += res;
       fseeko(pcap, pos+sizeof(packet_hdr), SEEK_SET);
 
-      /* try to read the packet body AND check if there are still at least 16 bytes left for the next pcap packet header */
+      /* try to read the packet body AND check if there are still at least 24 bytes left for the next pcap packet header */
       if ((fread(&buffer, conint(packet_hdr.incl_len), 1, pcap) == 0) || ((filesize-(pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len)) > 0) && (filesize-(pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len)) < sizeof(packet_hdr)))) {
-        /* fread returned an error (EOL while read the body) or the file is not large enough for the next pcap packet header (16bytes) */
+        /* fread returned an error (EOL while read the body) or the file is not large enough for the next pcap packet header (24bytes) */
         /* thou the last packet has been cut of */
 
         if (verbose >= 1) printf("[-] LAST PACKET MISMATCH (%u | %u | %u | %u)\n", conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
@@ -465,10 +449,10 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
       bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
 
       /* check if next packets header looks proper */
-      if (check_header(hdrbuffer, sizeof(hdrbuffer), conint(packet_hdr.ts_sec), &global_hdr, &next_packet_hdr) == -1) {
+      if (check_header_kuznetzov(hdrbuffer, sizeof(hdrbuffer), conint(packet_hdr.ts_sec), &global_hdr, &next_packet_hdr) == -1) {
 
         /* the next packets header is corrupted thou we are going to scan through the prior packets body to look for an overlapped packet header
-         * also look inside the next packets header + 16bytes of packet body, because we need to know HERE
+         * also look inside the next packets header + 24bytes of packet body, because we need to know HERE
          * do not leave the loop if the first packet has not been found yet AND deep scan mode is activated */
         for (nextpos=pos+sizeof(packet_hdr)+1; (nextpos < pos+sizeof(packet_hdr)+conint(packet_hdr.incl_len)+2*sizeof(packet_hdr)) || (count == 1 && deep_scan == 1); nextpos++) {
 
@@ -483,7 +467,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
           if (verbose >= 2) printf("[*] Trying Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
           /* check the header for plausibility */
-          res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &next_packet_hdr);
+          res = check_header_kuznetzov(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &next_packet_hdr);
           if (res != -1) {
 
             /* we found a proper header inside the packets body! */
@@ -573,7 +557,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
           printf("[*] End of file reached. Aligning last packet.\n");
 
           /* check last packet for plausiblilty */
-          res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &packet_hdr);
+          res = check_header_kuznetzov(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &packet_hdr);
           if (res != 0) {
             printf("[-] Cannot align last packet, because it is broken.\n");
             corrupted++;
@@ -631,7 +615,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
         if (verbose >= 2) printf("[*] Trying Packet #%u at position %" PRIu64 " (%u | %u | %u | %u).\n", (count+1), nextpos, conint(next_packet_hdr.ts_sec), conint(next_packet_hdr.ts_usec), conint(next_packet_hdr.incl_len), conint(next_packet_hdr.orig_len));
 
         /* check if next packets header looks proper */
-        res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &next_packet_hdr);
+        res = check_header_kuznetzov(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &next_packet_hdr);
         if (res != -1) {
 
           /* if we found a packet that is below the top MAX_SNAPLEN bytes (deep scan) we cut it off and take the second packet as first one */
@@ -678,7 +662,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct globa
             bytes = fread(&buffer, conint(packet_hdr.incl_len), 1, pcap);
 
             /* final check resulting packet for plausibility */
-            res = is_plausible(global_hdr, packet_hdr, last_correct_ts_sec);
+            res = is_plausible_kuznetzov(global_hdr, packet_hdr, last_correct_ts_sec);
             if (res == 0) {
 
               // check if there is enough space in buffer

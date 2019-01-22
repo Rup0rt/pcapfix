@@ -14,11 +14,14 @@ endif
 
 
 
-all: pcap pcapng
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) pcapfix.c pcap.o pcapng.o -o pcapfix
+all: pcap pcap_kuznet pcapng
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) pcapfix.c pcap.o pcap_kuznet.o pcapng.o -o pcapfix
 
 pcap: pcap.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c pcap.c -o pcap.o
+
+pcap_kuznet: pcap_kuznet.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c pcap_kuznet.c -o pcap_kuznet.o
 
 pcapng: pcapng.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c pcapng.c -o pcapng.o

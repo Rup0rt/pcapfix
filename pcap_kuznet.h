@@ -17,32 +17,24 @@
  *
  ******************************************************************************/
 
-#ifndef PF_PCAP
-#define PF_PCAP
+#ifndef PF_PCAP_KUZNET
+#define PF_PCAP_KUZNET
 
-#define PCAP_MAGIC 0xa1b2c3d4			/* the magic of the pcap global header (non swapped) */
-#define PCAP_MAGIC_SWAPPED 0xd4c3b2a1		/* the magic of the pcap global header (non swapped) */
-#define PCAPNG_MAGIC 0x0a0d0d0a			/* the magic of the pcap global header (non swapped) */
-#define PCAP_NSEC_MAGIC 0xa1b23c4d		/* the magic of the pcap global header (nanoseconds - non swapped) */
-#define PCAP_MAX_SNAPLEN 262144			/* the maximum snap length, should be 256K instead of 64K nowadays */
+#define PCAP_EXT_MAGIC 0xa1b2cd34               /* the magic of the extended pcap global header (non swapped) */
+#define PCAP_EXT_MAGIC_SWAPPED 0x34cdb2a1	/* the magic of the extended pcap global header (swapped) */
 
-/* Global header (http://v2.nat32.com/pcap.htm) */
-struct global_hdr_s {
-  u_int32_t magic_number;   /* magic number */
-  u_int16_t version_major;  /* major version number */
-  u_int16_t version_minor;  /* minor version number */
-  int32_t thiszone;       	/* GMT to local correction */
-  u_int32_t sigfigs;        /* accuracy of timestamps */
-  u_int32_t snaplen;        /* max length of captured packets, in octets */
-  u_int32_t network;        /* data link type */
-};
+#include "pcap.h"
 
-/* Packet header (http://v2.nat32.com/pcap.htm) */
-struct packet_hdr_s {
+/* KUZNETZOV Packet Header
+   http://tcpreplay.synfin.net/doxygen_yhsiam/tcpcapinfo_8c-source.html - is there an official documentation? */
+struct packet_hdr_kuznet_s {
   u_int32_t ts_sec;         /* timestamp seconds */
   u_int32_t ts_usec;        /* timestamp microseconds */
   u_int32_t incl_len;       /* number of octets of packet saved in file */
   u_int32_t orig_len;       /* actual length of packet */
+  int32_t index;
+  u_int16_t protocol;
+  u_int8_t pkt_type;
 };
 
 /*
@@ -63,7 +55,7 @@ struct packet_hdr_s {
  *          -X   error (condition X failed)
  *
  */
-int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsigned int prior_ts);
+int is_plausible_kuznet(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsigned int prior_ts);
 
 /*
  * Function:  check_header
@@ -80,7 +72,7 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
  *           -1   error (no valid pcap header found inside buffer)
  *
  */
-int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct global_hdr_s *global_hdr, struct packet_hdr_s *hdr);
+int check_header_kuznetzov(char *buffer, unsigned int size, unsigned int prior_ts, struct global_hdr_s *global_hdr, struct packet_hdr_kuznet_s *hdr);
 
 /*
  * Function:  fix_pcap
@@ -97,7 +89,7 @@ int check_header(char *buffer, unsigned int size, unsigned int prior_ts, struct 
  *          -3   error (EOF reached while reading input file)
  *
  */
-int fix_pcap(FILE *pcap, FILE *pcap_fix);
+int fix_pcap_kuznetzov(FILE *pcap, FILE *pcap_fix);
 
 /*
  * Function:  fix_pcap_packets
@@ -119,6 +111,6 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix);
  *          -3   error (EOF reached while reading input file)
  *
  */
-int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos);
+int fix_pcap_packets_kuznetzov(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos);
 
 #endif

@@ -42,6 +42,7 @@
 
 #include "pcapfix.h"
 #include "pcap.h"
+#include "pcap_kuznet.h"
 #include "pcapng.h"
 
 #define VERSION "1.1.4"			    /* pcapfix version */
@@ -365,10 +366,11 @@ int main(int argc, char *argv[]) {
 
       return(-6);
 
+    /* extended pcap format (KUZNETZOV) */
     case PCAP_EXT_MAGIC:
     case PCAP_EXT_MAGIC_SWAPPED:
       printf("[+] This is an extended tcpdump file.\n");
-      res = fix_pcap(pcap, pcap_fix);
+      res = fix_pcap_kuznetzov(pcap, pcap_fix);
 
       break;
 
