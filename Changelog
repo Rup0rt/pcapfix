@@ -1,6 +1,10 @@
 pcapfix Changelog
 *****************
 
+1.1.5 - 
+-------
+* fixed file repair bug under Microsoft Windows
+
 1.1.4 - 22.01.2019
 ------------------
 * added support for extended pcap file format (kuznetzov)
