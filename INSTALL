@@ -32,8 +32,10 @@ Microsoft Windows
 
 Compile pcapfix using cygwin:
 	gcc -c pcap.c -o pcap.o
+	gcc -c pcap_kuznet.c -o pcap_kuznet.o
 	gcc -c pcapng.c -o pcapng.o
-	gcc pcapfix.c pcap.o pcapng.o -l ws2_32 -o pcapfix.exe
+	gcc -c winfunc.c -o winfunc.o
+	gcc pcapfix.c pcap.o pcap_kuznet.c pcapng.o winfunc.o -l ws2_32 -o pcapfix.exe
 
 
 Troubleshooting
