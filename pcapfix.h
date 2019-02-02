@@ -28,7 +28,6 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <inttypes.h>
-#include <fcntl.h>
 
 #ifdef __WIN32__
   #include <Winsock.h>   		/* needed for htons,htonl on windows systems */
@@ -43,14 +42,7 @@
   typedef uint32_t u_int32_t;
 
   /* truncate does not exist under windows */
-  int truncate(const char *pathname, _off_t len){
-    int ret, err;
-    int fd = _open(pathname,_O_BINARY|_O_RDWR);
-    if (fd == -1) return fd;
-    ret = ftruncate(fd,len);
-    _close(fd);
-    return ret;
-  }
+  int truncate(const char *pathname, _off_t len);
 
 #else
   #include <libgen.h>    		/* needed for basename */
