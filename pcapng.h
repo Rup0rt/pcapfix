@@ -64,7 +64,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix);
  *          -1   error (reached EOF without finding a valid block)
  *
  */
-int find_valid_block(FILE *pcap, uint64_t filesize);
+int find_valid_block(FILE *pcap, off_t filesize);
 
 /*
  * Function:  write_shb
@@ -78,7 +78,7 @@ int find_valid_block(FILE *pcap, uint64_t filesize);
  *          -1   error (cannot write to output file)
  *
  */
-int write_shb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos);
+int write_shb(FILE *pcap_fix, char* writebuffer, off_t* writepos);
 
 /*
  * Function:  write_idb
@@ -92,6 +92,6 @@ int write_shb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos);
  *          -1   error (cannot write to output file)
  *
  */
-int write_idb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos);
+int write_idb(FILE *pcap_fix, char* writebuffer, off_t* writepos);
 
 #endif

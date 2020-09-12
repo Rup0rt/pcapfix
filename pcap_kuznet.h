@@ -111,6 +111,6 @@ int fix_pcap_kuznetzov(FILE *pcap, FILE *pcap_fix);
  *          -3   error (EOF reached while reading input file)
  *
  */
-int fix_pcap_packets_kuznetzov(FILE *pcap, FILE *pcap_fix, uint64_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, uint64_t writepos);
+int fix_pcap_packets_kuznetzov(FILE *pcap, FILE *pcap_fix, off_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, off_t writepos);
 
 #endif

@@ -32,7 +32,7 @@
 #ifdef __WIN32__
   #include <Winsock.h>   		/* needed for htons,htonl on windows systems */
 
-  /* fseeko, ftello are unkown on mingw, use o64 instead */
+  /* fseeko, ftello are unknown on mingw, use o64 instead */
   #define fseeko fseeko64
   #define ftello ftello64
 
@@ -45,6 +45,8 @@
   #include <libgen.h>    		/* needed for basename */
   #include <arpa/inet.h>		/* htons, htonl */
 #endif
+
+#define FMT_OFF_T "jd"  /* printf format for 'off_t' type */
 
 /*
  * Function:  conshort
@@ -85,7 +87,7 @@ unsigned int conint(unsigned int var);
  * filesize:  the size of the input pcap file in bytes
  *
  */
-void print_progress(uint64_t pos, uint64_t filesize);
+void print_progress(off_t pos, off_t filesize);
 
 /* global configuration variables */
 extern int deep_scan;		/* deep scan option (default: no depp scan) */

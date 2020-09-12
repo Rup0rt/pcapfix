@@ -132,14 +132,14 @@ unsigned int conint(unsigned int var) {
  * filesize:  the size of the input pcap file in bytes
  *
  */
-void print_progress(uint64_t pos, uint64_t filesize) {
+void print_progress(off_t pos, off_t filesize) {
   float percentage;	/* pencentage variable */
 
   /* calculate the current percentage of file analyzing progress */
-  percentage = (float)pos/(float)filesize;
+  percentage = (float)(100*(double)pos/(double)filesize);
 
   /* print the first part of the line including percentage output */
-  printf("[*] Progress: %6.02f %%\n", percentage*100);
+  printf("[*] Progress: %6.02f %%\n", percentage);
 }
 
 /*
@@ -176,8 +176,8 @@ int main(int argc, char *argv[]) {
   char *filename;               /* filename of input file */
   char *filebname;              /* filebasename of input file (without path) */
   char *filename_fix = NULL;    /* filename of output file */
-  uint64_t bytes;		        /* read/written blocks counter */
-  uint64_t filesize;	        /* file size of input pcap file in bytes */
+  off_t bytes;		        /* read/written blocks counter */
+  off_t filesize;	        /* file size of input pcap file in bytes */
 
   /* init getopt_long options struct */
   struct option long_options[] = {
@@ -286,7 +286,7 @@ int main(int argc, char *argv[]) {
   /* get file size */
   fseeko(pcap, 0, SEEK_END);
   filesize = ftello(pcap);
-  printf("[*] File size: %" PRIu64 " bytes.\n", filesize);
+  printf("[*] File size: %" FMT_OFF_T " bytes.\n", filesize);
 
   /* check for empty file */
   if (filesize == 0) {
