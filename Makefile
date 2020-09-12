@@ -32,10 +32,12 @@ pcap_kuznet: pcap_kuznet.c
 pcapng: pcapng.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c pcapng.c -o pcapng.o
 
+.PHONY: install
 install:
 	install -pDm755 pcapfix $(DESTDIR)$(BINDIR)/pcapfix
 	install -pDm644 pcapfix.1 $(DESTDIR)$(MANDIR)/man1/pcapfix.1
 
+.PHONY: uninstall
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/pcapfix
 	rm -f $(DESTDIR)$(MANDIR)/man1/pcapfix.1
