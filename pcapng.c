@@ -116,12 +116,12 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   // we use a buffer to cache 1mb of writing... this way writing is faster and
   // we can read and write the file at the same time
   char *writebuffer;
-  uint64_t writepos = 0;
+  off_t writepos = 0;
 
-  uint64_t bytes;                           /* written bytes/blocks counter */
-  uint64_t padding;                         /* calculation for padding bytes */
-  uint64_t pos;                             /* current block position in input file */
-  uint64_t filesize;                        /* size of input file */
+  off_t bytes;                              /* written bytes/blocks counter */
+  off_t padding;                            /* calculation for padding bytes */
+  off_t pos;                                /* current block position in input file */
+  off_t filesize;                           /* size of input file */
   unsigned int block_pos;                   /* current position inside -new_block- to write further data to */
   unsigned int check;                       /* variable to check end of blocks sizes */
   unsigned int count;                       /* option / record counter to create EOO/EOR if necessary */
@@ -130,7 +130,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   unsigned int step;                        /* step counter for progress bar */
   unsigned int packets;
 
-  int64_t left;                             /* bytes left to proceed until current blocks end is reached */
+  off_t left;                               /* bytes left to proceed until current blocks end is reached */
   int fixes;                                /* corruptions counter */
   int res;                                  /* return values */
 
@@ -152,7 +152,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   /* loop every block inside pcapng file until end of file is reached */
 
-  while (pos < filesize-sizeof(bh)) {
+  while ( pos < (off_t) (filesize-sizeof(bh))) {
 
     /* print out progress bar if in non-verbose mode */
     if ((verbose == 0) && (5*(float)pos/(float)filesize > step)) {
@@ -168,7 +168,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     if (bh.total_length > filesize-pos) {
       /* block size is larger than bytes in input file */
 
-      if (verbose >= 1) printf("[-] Block Length (%u) exceeds file size (%" PRIu64 ").\n", bh.total_length, filesize);
+      if (verbose >= 1) printf("[-] Block Length (%" PRIu16 ") exceeds file size (%" FMT_OFF_T ").\n", bh.total_length, filesize);
 
       /* search for next valid block */
       if (verbose >= 1) printf("[*] Trying to align next block...\n");
@@ -178,7 +178,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       if (res == 0) {
         /* another valid block has been found in the file */
 
-        if (verbose >= 1) printf("[+] GOT Next Block at Position %" PRIu64 "\n", ftello(pcap));
+        if (verbose >= 1) printf("[+] GOT Next Block at Position %" FMT_OFF_T "\n", ftello(pcap));
 
         /* adjust total blocks length to match next block */
         bh.total_length = ftello(pcap)-pos;
@@ -193,7 +193,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       }
 
-      if (verbose >= 1) printf("[*] Assuming this blocks size as %u bytes.\n", bh.total_length);
+      if (verbose >= 1) printf("[*] Assuming this blocks size as %" PRIu32 " bytes.\n", bh.total_length);
       else printf("[-] Invalid Block size => CORRECTED.\n");
 
       /* reset input file pointer behind block header */
@@ -218,7 +218,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* Section Header Block */
       case TYPE_SHB:
-        if (verbose >= 1) printf("[*] FOUND: Section Header Block at position %" PRIu64 " (%u bytes)\n", pos, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Section Header Block at position %" FMT_OFF_T " (%" PRIu16 " bytes)\n", pos, bh.total_length);
 
         /* read section header block into struct */
         bytes = fread(&shb, sizeof(shb), 1, pcap);
@@ -280,29 +280,29 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           switch (oh.option_code) {
             /* End of Options */
             case 0x00:
-              if (verbose >= 2) printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: End of Options... (%" PRIu16 " bytes)\n", oh.option_length);
               break;
             /* Comment Option */
             case 0x01:
-              if (verbose >= 2) printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Comment... (%" PRIu16 " bytes)\n", oh.option_length);
               break;
             /* Hardware Information */
             case 0x02:
-              if (verbose >= 2) printf("[+] OPTION: Hardware... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Hardware... (%" PRIu16 " bytes)\n", oh.option_length);
               break;
             /* Operating System Information */
             case 0x03:
-              if (verbose >= 2) printf("[+] OPTION: Operating System... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Operating System... (%" PRIu16 " bytes)\n", oh.option_length);
               break;
             /* User Application Information */
             case 0x04:
-              if (verbose >= 2) printf("[+] OPTION: Userappl... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Userappl... (%" PRIu16 " bytes)\n", oh.option_length);
               break;
           }
 
           /* Invalid Option? */
           if (oh.option_code > 0x04) {
-            printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
+            printf("[-] Unknown option code: 0x%04x (%" PRIu16 " bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
             /* increase corruptions counter */
             fixes++;
@@ -331,7 +331,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" FMT_OFF_T ") exceeds remaining block space (%" FMT_OFF_T "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
 
             /* because this block oversizes, there should not be any further option */
@@ -382,7 +382,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* check oversize */
         if (sizeof(pb) > (unsigned)left) {
-          printf("[-] Packet #%u exceeds size of block header (%" PRIu64 " > %" PRId64 ") ==> SKIPPING.\n", packets, sizeof(pb), left);
+          printf("[-] Packet #%u exceeds size of block header (%zu > %" FMT_OFF_T ") ==> SKIPPING.\n", packets, sizeof(pb), left);
           /* set to "invalid block" */
           bh.block_type = -1;
           break;
@@ -399,7 +399,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 1) printf("[*] FOUND Packet #%u: Packet Block at position %" PRIu64 " (%u bytes)\n", packets, pos, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND Packet #%u: Packet Block at position %" FMT_OFF_T " (%" PRIu16 " bytes)\n", packets, pos, bh.total_length);
 
         /* read packet block into struct */
         bytes = fread(&pb, sizeof(pb), 1, pcap);
@@ -409,7 +409,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         /* pre-check too large interface number (1024) */
         if (pb.interface_id > 1024) {
           /* interface id is unusal high --> this field is probably corrupted */
-          printf("[-] Probably corrupted Interface ID #%u (too high?) ==> CORRECTED.\n", pb.interface_id);
+          printf("[-] Probably corrupted Interface ID #%" PRIu32 " (too high?) ==> CORRECTED.\n", pb.interface_id);
           pb.interface_id = 1;
           fixes++;
         }
@@ -417,7 +417,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         /* check for the mandatory IDB that MUST identify every packets interface_id */
         while (pb.interface_id >= idb_num) {
           /* no IDB is identifying this packet, we need to create one - until the ID has been reached */
-          printf("[-] Missing IDB for Interface #%u ==> CREATING (#%u).\n", pb.interface_id, idb_num);
+          printf("[-] Missing IDB for Interface #%" PRIu32 " ==> CREATING (#%u).\n", pb.interface_id, idb_num);
           write_idb(pcap_fix, writebuffer, &writepos);
 
           /* increase counters */
@@ -431,7 +431,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* check for oversized caplen */
         if (pb.caplen > (unsigned)left) {
-          printf("[-] Capture length (%u) exceeds block size (%" PRId64 ") ==> CORRECTED.\n", pb.caplen, left);
+          printf("[-] Capture length (%" PRIu32 ") exceeds block size (%" FMT_OFF_T ") ==> CORRECTED.\n", pb.caplen, left);
           pb.caplen = left;
         }
 
@@ -464,25 +464,25 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           switch (oh.option_code) {
             /* End of Options */
             case 0x00:
-              if (verbose >= 2) printf("[+] OPTION: End of Options... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: End of Options... (%" PRIu16 " bytes)\n", oh.option_length);
               break;
             /* Comment Option */
             case 0x01:
-              if (verbose >= 2) printf("[+] OPTION: Comment... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Comment... (%" PRIu16 " bytes)\n", oh.option_length);
               break;
             /* Link Layer Flags */
             case 0x02:
-              if (verbose >= 2) printf("[+] OPTION: Link Layer Flags... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Link Layer Flags... (%" PRIu16 " bytes)\n", oh.option_length);
               break;
             /* Packet Hash */
             case 0x03:
-              if (verbose >= 2) printf("[+] OPTION: Packet Hash... (%u bytes)\n", oh.option_length);
+              if (verbose >= 2) printf("[+] OPTION: Packet Hash... (%" PRIu16 " bytes)\n", oh.option_length);
               break;
           }
 
           /* Invalid Option? */
           if (oh.option_code > 0x03) {
-            printf("[-] Unknown option code: 0x%04x (%u bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
+            printf("[-] Unknown option code: 0x%04" PRIx16 " (%" PRIu16 " bytes) ==> SKIPPING.\n", oh.option_code, oh.option_length);
 
             /* increase corruptions counter */
             fixes++;
@@ -511,7 +511,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" FMT_OFF_T ") exceeds remaining block space (%" FMT_OFF_T "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
 
             /* because this block oversizes, there should not be any further option */
@@ -570,7 +570,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 1) printf("[*] FOUND Packet #%u: Simple Packet Block at position %" PRIu64 " (%u bytes)\n", packets, pos, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND Packet #%u: Simple Packet Block at position %" FMT_OFF_T " (%" PRIu16 " bytes)\n", packets, pos, bh.total_length);
 
         /* read simple packet block */
         bytes = fread(&spb, sizeof(spb), 1, pcap);
@@ -733,7 +733,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" FMT_OFF_T ") exceeds remaining block space (%" FMT_OFF_T "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
 
             /* because this block oversizes, there should not be any further option */
@@ -791,7 +791,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 1) printf("[*] FOUND: Name Resolution Block at position %" PRIu64 " (%u bytes)\n", pos, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Name Resolution Block at position %" FMT_OFF_T " (%" PRIu16 " bytes)\n", pos, bh.total_length);
 
         /* process records */
         count = 0;
@@ -934,7 +934,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" FMT_OFF_T ") exceeds remaining block space (%" FMT_OFF_T "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
 
             /* because this block oversizes, there should not be any further option */
@@ -993,7 +993,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 1) printf("[*] FOUND: Interface Statistics Block at position %" PRIu64 " (%u bytes)\n", pos, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND: Interface Statistics Block at position %" FMT_OFF_T " (%" PRIu16 " bytes)\n", pos, bh.total_length);
 
         /* read interface statistics block */
         bytes = fread(&isb, sizeof(isb), 1, pcap);
@@ -1084,7 +1084,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" FMT_OFF_T ") exceeds remaining block space (%" FMT_OFF_T "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
 
             /* because this block oversizes, there should not be any further option */
@@ -1143,7 +1143,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
-        if (verbose >= 1) printf("[*] FOUND Packet #%u: Enhanced Packet Block at position %" PRIu64 " (%u bytes)\n", packets, pos, bh.total_length);
+        if (verbose >= 1) printf("[*] FOUND Packet #%u: Enhanced Packet Block at position %" FMT_OFF_T " (%" PRIu16 " bytes)\n", packets, pos, bh.total_length);
 
         /* read enhanced packet block */
         bytes = fread(&epb, sizeof(epb), 1, pcap);
@@ -1179,7 +1179,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
         /* check if packet capture size exceeds packet length */
         if (epb.caplen > left) {
-          printf("[-] Enhanced packet data exceeds total packet size (%u > %" PRIu64 ") ==> CORRECTED.\n", epb.caplen, left);
+          printf("[-] Enhanced packet data exceeds total packet size (%" PRIu32 " > %" FMT_OFF_T ") ==> CORRECTED.\n", epb.caplen, left);
           epb.caplen = left;
 
           fixes++;
@@ -1275,7 +1275,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* check oversize */
           if (padding > (unsigned)left) {
-            printf("[-] Option size (%" PRIu64 ") exceeds remaining block space (%" PRId64 "). ==> SKIPPING OPTION.\n", padding, left);
+            printf("[-] Option size (%" FMT_OFF_T ") exceeds remaining block space (%" FMT_OFF_T "). ==> SKIPPING OPTION.\n", padding, left);
             fixes++;
 
             /* because this block oversizes, there should not be any further option */
@@ -1374,7 +1374,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       if (verbose >= 2) printf("[+] End of Block reached... byte counter is correct!\n");
     } else {
       /* we did not read until end of block - maybe due to option skipping */
-      if (verbose >= 1) printf("[-] Did not hit the end of the block! (%" PRId64 " bytes left)\n", left);
+      if (verbose >= 1) printf("[-] Did not hit the end of the block! (%" FMT_OFF_T " bytes left)\n", left);
     }
 
     /* check for correct block end (block size) */
@@ -1402,8 +1402,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         res = find_valid_block(pcap, filesize);
 
         /* output information about overlapped/skipped bytes */
-        if (ftello(pcap) > (unsigned)bytes) printf("[-] Found %" PRId64 " bytes of unknown data ==> SKIPPING.\n", ftello(pcap)-bytes);
-        else printf("[-] Packet overlapps with %" PRId64 " bytes ==> CORRECTED.\n", bytes-ftello(pcap));
+        if (ftello(pcap) > (unsigned)bytes) printf("[-] Found %" FMT_OFF_T " bytes of unknown data ==> SKIPPING.\n", ftello(pcap)-bytes);
+        else printf("[-] Packet overlapps with %" FMT_OFF_T " bytes ==> CORRECTED.\n", bytes-ftello(pcap));
 
         /* increase corruption counter */
         fixes++;
@@ -1450,8 +1450,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
  *          -1   error (reached EOF without finding a valid block)
  *
  */
-int find_valid_block(FILE *pcap, uint64_t filesize) {
-  uint64_t i;
+int find_valid_block(FILE *pcap, off_t filesize) {
+  off_t i;
   unsigned int bytes;
   unsigned int check;                       /* variable to check end of blocks sizes */
   struct block_header bh;                   /* block header */
@@ -1523,7 +1523,7 @@ int find_valid_block(FILE *pcap, uint64_t filesize) {
       if (check == bh.total_length) {
         /* also the second block size value is correct! */
 
-        if (verbose >= 1) printf("[+] FOUND: Block (Type: 0x%08x) at Position %" PRIu64 "\n", bh.block_type, i);
+        if (verbose >= 1) printf("[+] FOUND: Block (Type: 0x%08" PRIx32 ") at Position %" FMT_OFF_T "\n", bh.block_type, i);
 
         /* set pointer to next block position */
         fseeko(pcap, i, SEEK_SET);
@@ -1548,12 +1548,12 @@ int find_valid_block(FILE *pcap, uint64_t filesize) {
  *          -1   error (cannot write to output file)
  *
  */
-int write_shb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos) {
+int write_shb(FILE *pcap_fix, char* writebuffer, off_t* writepos) {
   struct block_header bh;           /* block header */
   struct section_header_block shb;  /* section header block */
   struct option_header oh;          /* options header */
 
-  uint64_t bytes;              /* written bytes/blocks counter */
+  off_t bytes;              /* written bytes/blocks counter */
   unsigned int size = 0;            /* size of whole block */
   unsigned int padding;             /* padding of data */
   unsigned char *data;              /* data buffer */
@@ -1647,12 +1647,12 @@ int write_shb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos) {
  *          -1   error (cannot write to output file)
  *
  */
-int write_idb(FILE *pcap_fix, char* writebuffer, uint64_t* writepos) {
+int write_idb(FILE *pcap_fix, char* writebuffer, off_t* writepos) {
   struct block_header bh;                   /* block header */
   struct interface_description_block idb;   /* interface description block */
   struct option_header oh;                  /* options header */
 
-  uint64_t bytes;              /* written bytes/blocks counter */
+  off_t bytes;                      /* written bytes/blocks counter */
   unsigned int size = 0;            /* size of whole block */
   unsigned int padding;             /* padding of data */
   unsigned char *data;              /* data buffer */
