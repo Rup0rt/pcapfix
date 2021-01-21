@@ -45,8 +45,10 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
   /* check for minimum packet size
    * minimum packet size should be 16, but in some cases, e.g. local wlan capture, packet might
    * even be smaller --> decreased minimum size to 10 */
-  if (conint(hdr.incl_len) < 10) return(-1);
-  if (conint(hdr.orig_len) < 10) return(-2);
+  unsigned int maxlen = 10;
+  if (global_hdr.network == 195) maxlen = 5;	/* DLT 195 (IEEE 802.15.4) can have very small packets */
+  if (conint(hdr.incl_len) < maxlen) return(-1);
+  if (conint(hdr.orig_len) < maxlen) return(-2);
 
   /* check packet limit with header field and max snaplen
      in soft mode (and dlt 119) the packet detection accepts a wider range */
@@ -413,7 +415,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, off_t filesize, struct global_h
     }
 
     /* check if a pcap packet header would fit into the file */
-    if (pos + (off_t)sizeof(hdrbuffer) > filesize) {
+    if (pos + (off_t)sizeof(packet_hdr) > filesize) {
       printf("[-] Not enough bytes left in file ==> SKIPPING %" FMT_OFF_T " bytes.\n", filesize-pos);
       corrupted++;
 
@@ -429,8 +431,13 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, off_t filesize, struct global_h
     }
 
     /* read the next packet header */
-    bytes = fread(hdrbuffer, sizeof(hdrbuffer), 1, pcap);
+    memset(hdrbuffer, 0, sizeof(hdrbuffer));
+    bytes = fread(hdrbuffer, sizeof(packet_hdr), 1, pcap);
     if (bytes != 1) return -3;
+
+    /* read overlapping packet data into buffer if available */
+    bytes = fread(hdrbuffer+sizeof(packet_hdr), sizeof(packet_hdr), 1, pcap);
+    if (bytes != 1 && verbose >= 2) printf("[*] Skipping to read overlapping header data due to EOF\n");
 
     /* check if the packet header looks proper */
     res = check_header(hdrbuffer, sizeof(hdrbuffer), last_correct_ts_sec, &global_hdr, &packet_hdr);
