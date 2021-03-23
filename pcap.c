@@ -63,12 +63,12 @@ int is_plausible(struct global_hdr_s global_hdr, struct packet_hdr_s hdr, unsign
     /* in hard mode (and not dlt 119), global pcap snap length is the limit in plausibility checks */
     if (conint(hdr.incl_len) > conint(global_hdr.snaplen)) return(-4);
   }
-  /* orig length should not be greater than pcap max snaplen */
-  if (conint(hdr.orig_len) > PCAP_MAX_SNAPLEN) return(-5);
+  /* orig length should not be greater than pcap max snaplen (hard mode only) */
+  if (!soft_mode && conint(hdr.orig_len) > PCAP_MAX_SNAPLEN) return(-5);
 
   /* if the packet original size is larger than the included length, then
-     the included length should be limited by the files snap length */
-  if (conint(hdr.orig_len) > conint(hdr.incl_len)) {
+     the included length should be limited by the files snap length (hard mode only) */
+  if (!soft_mode && conint(hdr.orig_len) > conint(hdr.incl_len)) {
     /* check for dlt 119 == wlan */
     if (global_hdr.network == 119) {
       /* strange behavior for wlan: in some cases incl length seems to differ
