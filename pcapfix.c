@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License along with
  * Pcapfix. If not, see http://www.gnu.org/licenses/.
  *
- * Last Modified: 22.01.2019
+ * Last Modified: 04.05.2021
  *
  *******************************************************************************
  *
@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
   };
 
   /* print out pcapfix header information */
-  printf("pcapfix %s (c) 2012-2019 Robert Krause\n\n", VERSION);
+  printf("pcapfix %s (c) 2012-2021 Robert Krause\n\n", VERSION);
 
   /* scan for options and arguments */
   while ((c = getopt_long(argc, argv, ":t:ko:v::d::s::n::", long_options, &option_index)) != -1) {
