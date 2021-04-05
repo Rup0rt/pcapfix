@@ -1,9 +1,12 @@
 pcapfix Changelog
 *****************
 
-1.1.5 - 
+1.1.5 - 05.04.2021
 -------
-* fixed file repair bug under Microsoft Windows
+* snaplen checks are only performed in soft mode now
+* fixed repairs for dlt 195 (ieee 802.15.4 with fcs)
+* fixed (binary) file repair bug under Microsoft Windows
+* improved compiling on all platforms (thanks to mdeweerd)
 
 1.1.4 - 22.01.2019
 ------------------

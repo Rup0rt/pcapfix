@@ -1,7 +1,9 @@
 Installation Instructions
 *************************
 
-You do not need any futher packages.
+To compile pcapfix you need GNU Make and GNU-C/C++.
+Please check via 'make -v' whether you are using a proper version.
+The result should show something similar to 'GNU Make 4.3' in its output.
 
 Basic Installation
 ==================

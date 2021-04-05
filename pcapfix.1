@@ -1,4 +1,4 @@
-.TH PCAPFIX 1 "22 JAN 2019"
+.TH PCAPFIX 1 "04 APR 2021"
 
 .SH "NAME"
 pcapfix \- repair pcap and pcapng files
@@ -271,6 +271,15 @@ For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 
 .SH "HISTORY"
 .TP 5
+1.1.5 - 05.04.2021
+* snaplen checks are only performed in soft mode now
+.br
+* fixed repairs for dlt 195 (ieee 802.15.4 with fcs)
+.br
+* fixed (binary) file repair bug under Microsoft Windows
+.br
+* improved compiling on all platforms (thanks to mdeweerd)
+.TP
 1.1.4 - 22.01.2019
 * added support for extended pcap file format (kuznetzov)
 .br
@@ -428,7 +437,7 @@ For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
 * this is the first version, everything has changed thou :-)
 
 .SH "COPYRIGHT"
-Copyright (c) 2012-2018 Robert Krause
+Copyright (c) 2012-2021 Robert Krause
 
 Pcapfix is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
 

@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * Copyright (c) 2012-2019 Robert Krause (ruport@f00l.de)
+ * Copyright (c) 2012-2021 Robert Krause (ruport@f00l.de)
  *
  * This file is part of Pcapfix.
  *
@@ -45,7 +45,7 @@
 #include "pcap_kuznet.h"
 #include "pcapng.h"
 
-#define VERSION "1.1.4"			    /* pcapfix version */
+#define VERSION "1.1.5"			    /* pcapfix version */
 
 #define BTSNOOP_MAGIC 0x6E737462    /* btsnoop file magic (first 4 bytes) */
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
