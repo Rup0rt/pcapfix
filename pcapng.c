@@ -164,11 +164,14 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     bytes = fread(&bh, sizeof(bh), 1, pcap);
     if (bytes != 1) return -3;
 
-    /* check for invalid block length / file cut off */
-    if (bh.total_length > filesize-pos) {
-      /* block size is larger than bytes in input file */
+    /* check for invalid block length / file cut off OR block size < 12 bytes */
+    if (bh.total_length > filesize-pos || bh.total_length < 12) {
+      /* block size is invalid (too small / larger than bytes in input file) */
 
-      if (verbose >= 1) printf("[-] Block Length (%" PRIu16 ") exceeds file size (%" FMT_OFF_T ").\n", bh.total_length, filesize);
+      if (verbose >= 1) {
+        if (bh.total_length > filesize-pos) printf("[-] Block Length (%" PRIu16 ") exceeds file size (%" FMT_OFF_T ").\n", bh.total_length, filesize);
+        else printf("[-] Block Length (%" PRIu16 ") is too small.\n", bh.total_length);
+      }
 
       /* search for next valid block */
       if (verbose >= 1) printf("[*] Trying to align next block...\n");
@@ -1429,7 +1432,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
   writepos = 0;
 
   /* FILE HAS BEEN COMPLETELY CHECKED */
-
+  free(writebuffer);
+	
   /* did we write any SHB blocks at all?
    * if not this seems to be no pcapng file! */
   if (shb_num == 0) return(-1);
