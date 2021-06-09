@@ -45,7 +45,7 @@
 #include "pcap_kuznet.h"
 #include "pcapng.h"
 
-#define VERSION "1.1.5"			    /* pcapfix version */
+#define VERSION "1.1.6-DEVEL"			    /* pcapfix version */
 
 #define BTSNOOP_MAGIC 0x6E737462    /* btsnoop file magic (first 4 bytes) */
 #define SNOOP_MAGIC 0x6f6f6e73	    /* snoop file magic (first 4 bytes) */
@@ -484,6 +484,7 @@ int main(int argc, char *argv[]) {
     fclose(pcap_fix);
     int success = truncate(filename_fix, finalpos);
     if (success != 0) printf("[-] Truncating result file failed!");
+    free(filename_fix);
 
     printf("[+] SUCCESS: %d Corruption(s) fixed!\n\n", res);
     return(0);
