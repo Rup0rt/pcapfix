@@ -213,8 +213,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
     new_block = malloc(bh.total_length);
 
     /* copy the current blocks header into repaired block */
-    memcpy(new_block, &bh, 8);
-    block_pos = 8;
+    memcpy(new_block, &bh, sizeof(bh));
+    block_pos = sizeof(bh);
 
     /* what is the type of block at current position ? */
     switch (bh.block_type) {
@@ -265,6 +265,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         } else {
           if (verbose >= 1) printf("[*] Section length: %" PRId64 " ==> SETTING TO -1\n", shb.section_length);
           shb.section_length = -1;
+        }
+
+        /* check if enough space is aligned in memory block */
+        if (bh.total_length < block_pos+sizeof(shb)) {
+          bh.total_length = block_pos+sizeof(shb);
+          printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+          new_block = realloc(new_block, bh.total_length);
+          memcpy(new_block, &bh, sizeof(bh));
+          fixes++;
         }
 
         /* copy section header block into repaired block */
@@ -355,6 +364,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             oh.option_length = 0x00;
           }
 
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+sizeof(oh)) {
+            bh.total_length = block_pos+sizeof(oh);
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
+
           /* copy option header into repaired block */
           memcpy(new_block+block_pos, &oh, sizeof(oh));
           block_pos += sizeof(oh);
@@ -366,6 +384,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           data = malloc(padding);
           bytes = fread(data, padding, 1, pcap);
           left -= padding;
+
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+padding) {
+            bh.total_length = block_pos+padding;
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
 
           /* write option data to repaired block */
           memcpy(new_block+block_pos, data, padding);
@@ -428,6 +455,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
+        /* check if enough space is aligned in memory block */
+        if (bh.total_length < block_pos+sizeof(pb)) {
+          bh.total_length = block_pos+sizeof(pb);
+          printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+          new_block = realloc(new_block, bh.total_length);
+          memcpy(new_block, &bh, sizeof(bh));
+          fixes++;
+        }
+
         /* copy packet block into repaired block */
         memcpy(new_block+block_pos, &pb, sizeof(pb));
         block_pos += sizeof(pb);
@@ -446,6 +482,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         data = malloc(padding);
         bytes = fread(data, padding, 1, pcap);
         left -= padding;
+
+        /* check if enough space is aligned in memory block */
+        if (bh.total_length < block_pos+padding) {
+          bh.total_length = block_pos+padding;
+          printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+          new_block = realloc(new_block, bh.total_length);
+          memcpy(new_block, &bh, sizeof(bh));
+          fixes++;
+        }
 
         /* copy packet data into repaired block */
         memcpy(new_block+block_pos, data, padding);
@@ -535,6 +580,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             oh.option_length = 0x00;
           }
 
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+sizeof(oh)) {
+            bh.total_length = block_pos+sizeof(oh);
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
+
           /* copy options header into repaired block */
           memcpy(new_block+block_pos, &oh, sizeof(oh));
           block_pos += sizeof(oh);
@@ -546,6 +600,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           data = malloc(padding);
           bytes = fread(data, padding, 1, pcap);
           left -= padding;
+
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+padding) {
+            bh.total_length = block_pos+padding;
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
 
           /* copy option data to repaired block */
           memcpy(new_block+block_pos, data, padding);
@@ -583,6 +646,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         /* output data */
         if (verbose >= 1) printf("[*] SPB original packet length: %u bytes\n", spb.len);
 
+        /* check if enough space is aligned in memory block */
+        if (bh.total_length < block_pos+sizeof(spb)) {
+          bh.total_length = block_pos+sizeof(spb);
+          printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+          new_block = realloc(new_block, bh.total_length);
+          memcpy(new_block, &bh, sizeof(bh));
+          fixes++;
+        }
+
         /* copy simple packet block into repaired file */
         memcpy(new_block+block_pos, &spb, sizeof(spb));
         block_pos += sizeof(spb);
@@ -597,6 +669,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         data = malloc(padding);
         bytes = fread(data, padding, 1, pcap);
         left -= padding;
+
+        /* check if enough space is aligned in memory block */
+        if (bh.total_length < block_pos+padding) {
+          bh.total_length = block_pos+padding;
+          printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+          new_block = realloc(new_block, bh.total_length);
+          memcpy(new_block, &bh, sizeof(bh));
+          fixes++;
+        }
 
         /* copy packet data into repaired block */
         memcpy(new_block+block_pos, data, padding);
@@ -627,6 +708,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         bytes = fread(&idb, sizeof(idb), 1, pcap);	/* read first bytes of input file into struct */
         if (bytes != 1) return -3;
         left -= sizeof(idb);
+
+        /* check if enough space is aligned in memory block */
+        if (bh.total_length < block_pos+sizeof(idb)) {
+          bh.total_length = block_pos+sizeof(idb);
+          printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+          new_block = realloc(new_block, bh.total_length);
+          memcpy(new_block, &bh, sizeof(bh));
+          fixes++;
+        }
 
         /* copy interface description block into repaired block */
         memcpy(new_block+block_pos, &idb, sizeof(idb));
@@ -757,6 +847,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             oh.option_length = 0x00;
           }
 
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+sizeof(oh)) {
+            bh.total_length = block_pos+sizeof(oh);
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
+
           /* copy options header into repaired block */
           memcpy(new_block+block_pos, &oh, sizeof(oh));
           block_pos += sizeof(oh);
@@ -768,6 +867,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           data = malloc(padding);
           bytes = fread(data, padding, 1, pcap);
           left -= padding;
+
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+padding) {
+            bh.total_length = block_pos+padding;
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
 
           /* write option data into repaired block */
           memcpy(new_block+block_pos, data, padding);
@@ -846,6 +954,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
           /* record is valid */
 
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+sizeof(nrb)) {
+            bh.total_length = block_pos+sizeof(nrb);
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
+
           /* write name resolution block into repaired block */
           memcpy(new_block+block_pos, &nrb, sizeof(nrb));
           block_pos += sizeof(nrb);
@@ -861,6 +978,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           data = malloc(padding);
           bytes = fread(data, padding, 1, pcap);
           left -= padding;
+
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+padding) {
+            bh.total_length = block_pos+padding;
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
 
           /* copy record value into repaired buffer */
           memcpy(new_block+block_pos, data, padding);
@@ -958,6 +1084,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             oh.option_length = 0x00;
           }
 
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+sizeof(oh)) {
+            bh.total_length = block_pos+sizeof(oh);
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
+
           /* copy option header into repaired block */
           memcpy(new_block+block_pos, &oh, sizeof(oh));
           block_pos += sizeof(oh);
@@ -969,6 +1104,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           data = malloc(padding);
           bytes = fread(data, padding, 1, pcap);
           left -= padding;
+
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+padding) {
+            bh.total_length = block_pos+padding;
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
 
           /* copy option value into repaired block */
           memcpy(new_block+block_pos, data, padding);
@@ -1002,6 +1146,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
         bytes = fread(&isb, sizeof(isb), 1, pcap);
         if (bytes != 1) return -3;
         left -= sizeof(isb);
+
+        /* check if enough space is aligned in memory block */
+        if (bh.total_length < block_pos+sizeof(isb)) {
+          bh.total_length = block_pos+sizeof(isb);
+          printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+          new_block = realloc(new_block, bh.total_length);
+          memcpy(new_block, &bh, sizeof(bh));
+          fixes++;
+        }
 
         /* copy interface statistics block into repaired block */
         memcpy(new_block+block_pos, &isb, sizeof(isb));
@@ -1108,6 +1261,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             oh.option_length = 0x00;
           }
 
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+sizeof(oh)) {
+            bh.total_length = block_pos+sizeof(oh);
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
+
           /* copy options header into repaired block */
           memcpy(new_block+block_pos, &oh, sizeof(oh));
           block_pos += sizeof(oh);
@@ -1119,6 +1281,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           data = malloc(padding);
           bytes = fread(data, padding, 1, pcap);
           left -= padding;
+
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+padding) {
+            bh.total_length = block_pos+padding;
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
 
           /* copy option value into repaired block */
           memcpy(new_block+block_pos, data, padding);
@@ -1188,6 +1359,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           fixes++;
         }
 
+        /* check if enough space is aligned in memory block */
+        if (bh.total_length < block_pos+sizeof(epb)) {
+          bh.total_length = block_pos+sizeof(epb);
+          printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+          new_block = realloc(new_block, bh.total_length);
+          memcpy(new_block, &bh, sizeof(bh));
+          fixes++;
+        }
+
         /* copy enhanced packet block into repaired buffer */
         memcpy(new_block+block_pos, &epb, sizeof(epb));
         block_pos += sizeof(epb);
@@ -1205,6 +1385,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           bytes = fread(data, padding, 1, pcap);
           if (bytes != 1) return -3;
           left -= padding;
+
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+padding) {
+            bh.total_length = block_pos+padding;
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
 
           /* copy packet data into repaired block */
           memcpy(new_block+block_pos, data, padding);
@@ -1299,6 +1488,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
             oh.option_length = 0x00;
           }
 
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+sizeof(oh)) {
+            bh.total_length = block_pos+sizeof(oh);
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
+
           /* copy option header into repaired block */
           memcpy(new_block+block_pos, &oh, sizeof(oh));
           block_pos += sizeof(oh);
@@ -1310,6 +1508,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
           data = malloc(padding);
           bytes = fread(data, padding, 1, pcap);
           left -= padding;
+
+          /* check if enough space is aligned in memory block */
+          if (bh.total_length < block_pos+padding) {
+            bh.total_length = block_pos+padding;
+            printf("[-] Given block total length is too small ==> FIXED (%" PRIu32 ")\n", bh.total_length);
+            new_block = realloc(new_block, bh.total_length);
+            memcpy(new_block, &bh, sizeof(bh));
+            fixes++;
+          }
 
           /* copy option value into repaired block */
           memcpy(new_block+block_pos, data, padding);
@@ -1433,7 +1640,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   /* FILE HAS BEEN COMPLETELY CHECKED */
   free(writebuffer);
-	
+
   /* did we write any SHB blocks at all?
    * if not this seems to be no pcapng file! */
   if (shb_num == 0) return(-1);
