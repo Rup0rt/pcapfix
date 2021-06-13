@@ -1,6 +1,10 @@
 pcapfix Changelog
 *****************
 
+1.1.6 - 13.06.2021
+-------
+* added security boundary checks in pcapng format
+
 1.1.5 - 05.04.2021
 -------
 * snaplen checks are only performed in soft mode now
