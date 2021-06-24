@@ -204,6 +204,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   off_t bytes;					/* read/written bytes counter */
   off_t filesize;			        /* filesize of input file in bytes */
   unsigned short hdr_integ;			/* integrity counter of global header */
+  int res;					/* return code */
 
   /* init write buffer */
   writebuffer = malloc(1024000);
@@ -218,12 +219,16 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   /* check space of pcap global header */
   if (filesize < (off_t)sizeof(global_hdr)) {
     printf("[-] File is too small to read pcap global header.\n");
+    free(writebuffer);
     return(-2);
   }
 
   printf("[*] Analyzing Global Header...\n");
   bytes = fread(&global_hdr, sizeof(global_hdr), 1, pcap);	/* read first bytes of input file into struct */
-  if (bytes != 1) return -3;
+  if (bytes != 1) {
+    free(writebuffer);
+    return -3;
+  }
 
   /* init integrity counter */
   hdr_integ = 0;
@@ -345,7 +350,9 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   /* END OF GLOBAL HEADER CHECK */
 
   /* start checking packets now */
-  return(fix_pcap_packets(pcap, pcap_fix, filesize, global_hdr, hdr_integ, writebuffer, writepos));
+  res = fix_pcap_packets(pcap, pcap_fix, filesize, global_hdr, hdr_integ, writebuffer, writepos);
+  free(writebuffer);
+  return(res);
 }
 
 /*

@@ -432,6 +432,7 @@ int main(int argc, char *argv[]) {
 
       /* delete output file due to failure */
       if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
+      free(filename_fix);
 
       /* deep scan / soft mode dependent output */
       if (deep_scan == 0 || soft_mode == 0) printf("If you are SURE that there are pcap packets inside, try with deep scan (-d) (pcap only!) and/or soft mode (-s) to find them!\n\n");
