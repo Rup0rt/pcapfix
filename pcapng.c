@@ -115,7 +115,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   // we use a buffer to cache 1mb of writing... this way writing is faster and
   // we can read and write the file at the same time
-  char *writebuffer;
+  char *writebuffer, *tmpbuf;
   off_t writepos = 0;
 
   off_t bytes;                              /* written bytes/blocks counter */
@@ -197,7 +197,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       }
 
       if (bh.total_length < 12) {
-        printf("[-] Block too small ==> SKIPPING\n");
+        printf("[-] Block too small ==> SKIPPING.\n");
 
         /* reset input file pointer to next block */
         fseeko(pcap, pos+bh.total_length, SEEK_SET);
@@ -1569,13 +1569,21 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* write repaired block into output file */
       if (verbose >= 2) printf("[*] Writing block to buffer (%u bytes).\n", block_pos);
 
-      // do we need to write the buffer to the file?
+      /* do we need to write the buffer to the file? */
       if (writepos + block_pos > 1024000) {
         bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
         writepos = 0;
       }
 
-      // put new bytes into write buffer
+      /* check if writebuffer is large enough */
+      if (block_pos > 1024000) {
+        tmpbuf = malloc(block_pos);
+        memcpy(tmpbuf, writebuffer, 1024000);
+        free(writebuffer);
+        writebuffer = tmpbuf;
+      }
+
+      /* put new bytes into write buffer */
       memcpy(writebuffer+writepos, new_block, block_pos);
       writepos += block_pos;
 
@@ -1642,7 +1650,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
   }
 
-  // write remaining data into buffer
+  /* write remaining data into buffer */
   bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
   writepos = 0;
 
