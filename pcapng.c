@@ -196,6 +196,15 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       }
 
+      if (bh.total_length < 12) {
+        printf("[-] Block too small ==> SKIPPING\n");
+
+        /* reset input file pointer to next block */
+        fseeko(pcap, pos+bh.total_length, SEEK_SET);
+
+        continue;
+      }
+
       if (verbose >= 1) printf("[*] Assuming this blocks size as %" PRIu32 " bytes.\n", bh.total_length);
       else printf("[-] Invalid Block size => CORRECTED.\n");
 
@@ -1733,7 +1742,7 @@ int find_valid_block(FILE *pcap, off_t filesize) {
       if (check == bh.total_length) {
         /* also the second block size value is correct! */
 
-        if (verbose >= 1) printf("[+] FOUND: Block (Type: 0x%08" PRIx32 ") at Position %" FMT_OFF_T "\n", bh.block_type, i);
+        if (verbose >= 1) printf("[+] FOUND: Block (Type: 0x%08" PRIx32 ", Length: %u) at Position %" FMT_OFF_T "\n", bh.block_type, bh.total_length, i);
 
         /* set pointer to next block position */
         fseeko(pcap, i, SEEK_SET);
