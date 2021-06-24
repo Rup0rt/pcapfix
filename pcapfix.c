@@ -454,6 +454,7 @@ int main(int argc, char *argv[]) {
 
       /* delete output file due to failure */
       if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
+      free(filename_fix);
 
       return(res-10);
 
@@ -471,6 +472,7 @@ int main(int argc, char *argv[]) {
 
       /* delete output file due to failure */
       if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
+      free(filename_fix);
 
       return(res-10);
   }

@@ -350,7 +350,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   /* END OF GLOBAL HEADER CHECK */
 
   /* start checking packets now */
-  res = fix_pcap_packets(pcap, pcap_fix, filesize, global_hdr, hdr_integ, writebuffer, writepos);
+  res = fix_pcap_packets(pcap, pcap_fix, filesize, global_hdr, hdr_integ, &writebuffer, writepos);
   free(writebuffer);
   return(res);
 }
@@ -375,10 +375,11 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
  *          -3   error (EOF reached while reading input file)
  *
  */
-int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, off_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char *writebuffer, off_t writepos) {
+int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, off_t filesize, struct global_hdr_s global_hdr, unsigned short hdr_integ, char **writebuffer, off_t writepos) {
   struct packet_hdr_s packet_hdr;		/* packet header data */
   struct packet_hdr_s next_packet_hdr;		/* next packet header data to look forward */
   char hdrbuffer[sizeof(packet_hdr)*2];		/* the buffer that will be used to find a proper packet */
+  char *tmpbuf;					/* temp write buffer */
 
   char buffer[PCAP_MAX_SNAPLEN];		/* the packet body */
   off_t bytes;					/* read/written bytes counter */
@@ -467,6 +468,9 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, off_t filesize, struct global_h
         /* the original length must not be smaller than the included length */
         if (conint(packet_hdr.incl_len) > conint(packet_hdr.orig_len)) packet_hdr.orig_len = packet_hdr.incl_len;
 
+        /* the included length must not be greater than filesize */
+        if (conint(packet_hdr.incl_len) > filesize-pos) packet_hdr.incl_len = filesize-pos;
+
         /* print out information */
         printf("[+] CORRECTED Packet #%u at position %" FMT_OFF_T " (%u | %u | %u | %u).\n", count, pos, conint(packet_hdr.ts_sec), conint(packet_hdr.ts_usec), conint(packet_hdr.incl_len), conint(packet_hdr.orig_len));
         corrupted++;
@@ -545,16 +549,24 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, off_t filesize, struct global_h
       /* write this packet */
 
       // check if there is enough space in buffer
-      int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
+      off_t totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
       if (writepos+totalsize > 1024000) {
-        bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+        bytes = fwrite(*writebuffer, writepos, 1, pcap_fix);
         writepos = 0;
       }
 
+      /* check if writebuffer is large enough */
+      if (sizeof(packet_hdr) + conint(packet_hdr.incl_len) > 1024000) {
+        tmpbuf = malloc(sizeof(packet_hdr) + conint(packet_hdr.incl_len));
+        memcpy(tmpbuf, *writebuffer, 1024000);
+        free(*writebuffer);
+        writebuffer = &tmpbuf;
+      }
+
       // put new bytes into write buffer
-      memcpy(writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
+      memcpy(*writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
       writepos += sizeof(packet_hdr);
-      memcpy(writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
+      memcpy(*writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
       writepos += conint(packet_hdr.incl_len);
 
       /* remember that this packets timestamp to evaluate futher timestamps */
@@ -617,14 +629,14 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, off_t filesize, struct global_h
           // check if there is enough space in buffer
           int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
           if (writepos+totalsize > 1024000) {
-            bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+            bytes = fwrite(*writebuffer, writepos, 1, pcap_fix);
             writepos = 0;
           }
 
           // put new bytes into write buffer
-          memcpy(writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
+          memcpy(*writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
           writepos += sizeof(packet_hdr);
-          memcpy(writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
+          memcpy(*writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
           writepos += conint(packet_hdr.incl_len);
 
           /* remember that this packets timestamp to evaluate futher timestamps */
@@ -698,14 +710,14 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, off_t filesize, struct global_h
               // check if there is enough space in buffer
               int totalsize = sizeof(packet_hdr) + conint(packet_hdr.incl_len);
               if (writepos+totalsize > 1024000) {
-                bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+                bytes = fwrite(*writebuffer, writepos, 1, pcap_fix);
                 writepos = 0;
               }
 
               // put new bytes into write buffer
-              memcpy(writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
+              memcpy(*writebuffer+writepos, &packet_hdr, sizeof(packet_hdr));
               writepos += sizeof(packet_hdr);
-              memcpy(writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
+              memcpy(*writebuffer+writepos, buffer, conint(packet_hdr.incl_len));
               writepos += conint(packet_hdr.incl_len);
 
               /* remember that this packets timestamp to evaluate futher timestamps */
@@ -759,7 +771,7 @@ int fix_pcap_packets(FILE *pcap, FILE *pcap_fix, off_t filesize, struct global_h
   }
 
   // write remaining data into buffer
-  bytes = fwrite(writebuffer, writepos, 1, pcap_fix);
+  bytes = fwrite(*writebuffer, writepos, 1, pcap_fix);
   writepos = 0;
 
   if (verbose == 0) { print_progress(pos, filesize); }
