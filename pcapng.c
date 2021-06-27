@@ -1549,6 +1549,8 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* increase corruption counter */
       fixes++;
 
+      free(new_block);
+
     } else {
       /* this block type is valid */
 
