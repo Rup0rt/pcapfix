@@ -1556,6 +1556,17 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
 
       /* write sizes of block header to correct positions */
       block_pos += sizeof(bh.total_length);
+
+      /* check size of block */
+      if (bh.total_length < block_pos) {
+        if (verbose >= 2) printf("[*] Increasing block buffer to %u\n", block_pos);
+        tmpbuf = malloc(block_pos);
+        memcpy(tmpbuf, new_block, bh.total_length);
+        free(new_block);
+        new_block = tmpbuf;
+        bh.total_length = block_pos;
+      }
+
       memcpy(new_block+4, &block_pos, sizeof(bh.total_length));
       memcpy(new_block+block_pos-4, &block_pos, sizeof(bh.total_length));
 
