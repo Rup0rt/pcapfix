@@ -1555,6 +1555,7 @@ int fix_pcapng(FILE *pcap, FILE *pcap_fix) {
       /* this block type is valid */
 
       /* write sizes of block header to correct positions */
+      block_pos += sizeof(bh.total_length);
       memcpy(new_block+4, &block_pos, sizeof(bh.total_length));
       memcpy(new_block+block_pos-4, &block_pos, sizeof(bh.total_length));
 
