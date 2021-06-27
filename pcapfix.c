@@ -293,7 +293,10 @@ int main(int argc, char *argv[]) {
     printf("[-] The source file is empty.\n\n");
     fclose(pcap);
     fclose(pcap_fix);
+
     if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
+    free(filename_fix);
+
     return(-4);
   }
 
@@ -306,7 +309,10 @@ int main(int argc, char *argv[]) {
     printf("[-] Cannot read file header (file too small?).\n\n");
     fclose(pcap);
     fclose(pcap_fix);
+
     if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
+    free(filename_fix);
+
     return(-5);
   }
   fseeko(pcap, 0, SEEK_SET);
@@ -324,6 +330,7 @@ int main(int argc, char *argv[]) {
 
       /* delete output file due to no changes failure */
       if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
+      free(filename_fix);
 
       return(-6);
 
@@ -338,6 +345,7 @@ int main(int argc, char *argv[]) {
 
       /* delete output file due to no changes failure */
       if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
+      free(filename_fix);
 
       return(-6);
 
@@ -351,6 +359,7 @@ int main(int argc, char *argv[]) {
 
       /* delete output file due to no changes failure */
       if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
+      free(filename_fix);
 
       return(-6);
 
@@ -363,6 +372,7 @@ int main(int argc, char *argv[]) {
 
       /* delete output file due to no changes failure */
       if (strcmp(filename, filename_fix) != 0) remove(filename_fix);
+      free(filename_fix);
 
       return(-6);
 
@@ -416,9 +426,8 @@ int main(int argc, char *argv[]) {
       fclose(pcap_fix);
 
       /* delete output file due to no changes failure */
-      if ((strcmp(filename, filename_fix) != 0) && (0 == keep_outfile)) {
-        remove(filename_fix);
-      }
+      if ((strcmp(filename, filename_fix) != 0) && (0 == keep_outfile)) remove(filename_fix);
+      free(filename_fix);
 
       return(0);
 
