@@ -24,9 +24,9 @@
 /* truncate does not exist under windows */
 int truncate(const char *pathname, _off_t len){
   int ret, err;
-  int fd = _open(pathname,_O_BINARY|_O_RDWR);
+  int fd = open(pathname,O_BINARY|O_RDWR);
   if (fd == -1) return fd;
   ret = ftruncate(fd,len);
-  _close(fd);
+  close(fd);
   return ret;
 }
