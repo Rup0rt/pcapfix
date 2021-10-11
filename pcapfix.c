@@ -234,6 +234,9 @@ int main(int argc, char *argv[]) {
 
   /* if filename is not set, output usage information */
   if (filename == NULL) {
+    if (filename_fix) {
+      free(filename_fix);
+    }
     usage(argv[0]);
     return(-1);
   }
@@ -243,6 +246,9 @@ int main(int argc, char *argv[]) {
   pcap = fopen(filename, "rb");
   if (!pcap) {
     perror("[-] Cannot open input file");
+    if (filename_fix) {
+      free(filename_fix);
+    }
     return(-2);
   }
 
