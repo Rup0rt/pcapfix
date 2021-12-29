@@ -22,66 +22,66 @@
 
 /* Header of all pcapng blocks */
 struct block_header {
-	u_int32_t	block_type;    /* block type */
-	u_int32_t	total_length;  /* block length */
+	uint32_t	block_type;    /* block type */
+	uint32_t	total_length;  /* block length */
 };
 
 /* Header of all pcapng options */
 struct option_header {
-	u_int16_t		option_code;    /* option code - depending of block (0 - end of opts, 1 - comment are in common) */
-	u_int16_t		option_length;  /* option length - length of option in bytes (will be padded to 32bit) */
+	uint16_t		option_code;    /* option code - depending of block (0 - end of opts, 1 - comment are in common) */
+	uint16_t		option_length;  /* option length - length of option in bytes (will be padded to 32bit) */
 };
 
 /* Section Header Block (SHB) - ID 0x0A0D0D0A */
 struct section_header_block {
-	u_int32_t	byte_order_magic;   /* byte order magic - indicates swapped data */
-	u_int16_t		major_version;  /* major version of pcapng (1 atm) */
-	u_int16_t		minor_version;  /* minor version of pcapng (0 atm) */
+	uint32_t	byte_order_magic;   /* byte order magic - indicates swapped data */
+	uint16_t		major_version;  /* major version of pcapng (1 atm) */
+	uint16_t		minor_version;  /* minor version of pcapng (0 atm) */
 	int64_t	section_length;         /* length of section - can be -1 (parsing necessary) */
 };
 
 /* Interface Description Block (IDB) - ID 0x00000001 */
 struct interface_description_block {
-	u_int16_t		linktype;   /* the link layer type (was -network- in classic pcap global header) */
-	u_int16_t		reserved;   /* 2 bytes of reserved data */
-	u_int32_t	snaplen;        /* maximum number of bytes dumped from each packet (was -snaplen- in classic pcap global header */
+	uint16_t		linktype;   /* the link layer type (was -network- in classic pcap global header) */
+	uint16_t		reserved;   /* 2 bytes of reserved data */
+	uint32_t	snaplen;        /* maximum number of bytes dumped from each packet (was -snaplen- in classic pcap global header */
 };
 
 /* Packet Block (PB) - ID 0x00000002 (OBSOLETE - EPB should be used instead) */
 struct packet_block {
-	u_int16_t		interface_id;   /* the interface the packet was captured from - identified by interface description block in current section */
-	u_int16_t		drops_count;    /* packet dropped by IF and OS since prior packet */
-	u_int32_t	timestamp_high;     /* high bytes of timestamp */
-	u_int32_t	timestamp_low;      /* low bytes of timestamp */
-	u_int32_t	caplen;             /* length of packet in the capture file (was -incl_len- in classic pcap packet header) */
-	u_int32_t	len;                /* length of packet when transmitted (was -orig_len- in classic pcap packet header) */
+	uint16_t		interface_id;   /* the interface the packet was captured from - identified by interface description block in current section */
+	uint16_t		drops_count;    /* packet dropped by IF and OS since prior packet */
+	uint32_t	timestamp_high;     /* high bytes of timestamp */
+	uint32_t	timestamp_low;      /* low bytes of timestamp */
+	uint32_t	caplen;             /* length of packet in the capture file (was -incl_len- in classic pcap packet header) */
+	uint32_t	len;                /* length of packet when transmitted (was -orig_len- in classic pcap packet header) */
 };
 
 /* Simple Packet Block (SPB) - ID 0x00000003 */
 struct simple_packet_block {
-	u_int32_t	len;  /* length of packet when transmitted (was -orig_len- in classic pcap packet header) */
+	uint32_t	len;  /* length of packet when transmitted (was -orig_len- in classic pcap packet header) */
 };
 
 /* Name Resolution Block (NRB) - ID 0x00000004 */
 struct name_resolution_block {
-	u_int16_t		record_type;    /* type of record (ipv4 / ipv6) */
-	u_int16_t		record_length;  /* length of record value */
+	uint16_t		record_type;    /* type of record (ipv4 / ipv6) */
+	uint16_t		record_length;  /* length of record value */
 };
 
 /* Interface Statistics Block - ID 0x00000005 */
 struct interface_statistics_block {
-	u_int32_t	interface_id;     /* the interface the stats refer to - identified by interface description block in current section */
-	u_int32_t	timestamp_high;   /* high bytes of timestamp */
-	u_int32_t	timestamp_low;    /* low bytes of timestamp */
+	uint32_t	interface_id;     /* the interface the stats refer to - identified by interface description block in current section */
+	uint32_t	timestamp_high;   /* high bytes of timestamp */
+	uint32_t	timestamp_low;    /* low bytes of timestamp */
 };
 
 /* Enhanced Packet Block (EPB) - ID 0x00000006 */
 struct enhanced_packet_block {
-	u_int32_t	interface_id;     /* the interface the packet was captured from - identified by interface description block in current section */
-	u_int32_t	timestamp_high;   /* high bytes of timestamp */
-	u_int32_t	timestamp_low;    /* low bytes of timestamp */
-	u_int32_t	caplen;           /* length of packet in the capture file (was -incl_len- in classic pcap packet header) */
-	u_int32_t	len;              /* length of packet when transmitted (was -orig_len- in classic pcap packet header) */
+	uint32_t	interface_id;     /* the interface the packet was captured from - identified by interface description block in current section */
+	uint32_t	timestamp_high;   /* high bytes of timestamp */
+	uint32_t	timestamp_low;    /* low bytes of timestamp */
+	uint32_t	caplen;           /* length of packet in the capture file (was -incl_len- in classic pcap packet header) */
+	uint32_t	len;              /* length of packet when transmitted (was -orig_len- in classic pcap packet header) */
 };
 
 /*
