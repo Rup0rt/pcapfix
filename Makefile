@@ -3,10 +3,11 @@ BINDIR ?= $(PREFIX)/bin
 DOCDIR ?= $(PREFIX)/share/doc
 MANDIR ?= $(PREFIX)/share/man
 
-OPTFLAGS = $(shell getconf LFS_CFLAGS) -D_FORTIFY_SOURCE=2 -O2 -fstack-protector --param=ssp-buffer-size=4
+OPTFLAGS = -D_FORTIFY_SOURCE=2 -O2 -fstack-protector --param=ssp-buffer-size=4
 WARNFLAGS = -Wall -Wextra -std=gnu99 -pedantic -Wformat -Werror=format-security
 DEBUGFLAGS = -g
-CFLAGS += $(OPTFLAGS) $(WARNFLAGS) $(DEBUGFLAGS)
+CFLAGS ?= $(WARNFLAGS) $(DEBUGFLAGS)
+CFLAGS += $(shell getconf LFS_CFLAGS)
 
 # Determine extra LDFLAGS
 OS := $(shell uname)
