@@ -28,13 +28,13 @@
 /* KUZNETZOV Packet Header
    http://tcpreplay.synfin.net/doxygen_yhsiam/tcpcapinfo_8c-source.html - is there an official documentation? */
 struct packet_hdr_kuznet_s {
-  u_int32_t ts_sec;         /* timestamp seconds */
-  u_int32_t ts_usec;        /* timestamp microseconds */
-  u_int32_t incl_len;       /* number of octets of packet saved in file */
-  u_int32_t orig_len;       /* actual length of packet */
+  uint32_t ts_sec;         /* timestamp seconds */
+  uint32_t ts_usec;        /* timestamp microseconds */
+  uint32_t incl_len;       /* number of octets of packet saved in file */
+  uint32_t orig_len;       /* actual length of packet */
   int32_t index;
-  u_int16_t protocol;
-  u_int8_t pkt_type;
+  uint16_t protocol;
+  uint8_t pkt_type;
 };
 
 /*

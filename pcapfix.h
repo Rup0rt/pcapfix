@@ -36,11 +36,6 @@
   #define fseeko fseeko64
   #define ftello ftello64
 
-  /* compatibility for fixed size integer types on windows */
-  typedef uint8_t u_int8_t;
-  typedef uint16_t u_int16_t;
-  typedef uint32_t u_int32_t;
-
   /* truncate does not exist under windows */
   int truncate(const char *pathname, _off_t len);
 
