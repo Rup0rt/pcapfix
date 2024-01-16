@@ -1,0 +1,8 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source: https://github.com/Rup0rt/pcapfix/blob/master/COPYING
+Upstream-Name: pcapfix
+Upstream-Contact: Robert Krause <ruport@f00l.de>
+
+Files: *
+Copyright: Robert Krause <ruport@f00l.de>
+License:  GPL-3.0-or-later
