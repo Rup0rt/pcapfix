@@ -49,7 +49,7 @@ file.
 Deep Scan Option
 ................
 
-In classic pcap files, pcapfix will only scan the first 65536 bytes (maximum
+In classic pcap files, pcapfix will only scan the first 262144 bytes (maximum
 packet length) for a proper first packet. If you want to force packet detection
 even above this limit (e.g. because your file has been heavily destroyed) you
 can use the deep scan option (-d).
