@@ -1,0 +1,31 @@
+Package: pcapfix
+Version: %VERSION%
+Architecture: %ARCHITECTURE%
+Section: utils
+Priority: optional
+Homepage: https://f00l.de/pcapfix/
+Maintainer: Robert Krause <ruport@f00l.de>
+Description: pcapfix tries to repair your broken pcap and pcapng files
+  Pcapfix is a tool to repair your damaged or corrupted pcap and pcapng files.
+  It is written in C and released under the GNU General Public License.
+  .
+  To fix your pcap files the tool first checks for an intact pcap global header
+  and repairs it if there are some corrupted bytes. It there seems to be no
+  global header at all, pcapfix adds a self-created one at the beginning of the
+  file. In a second step the tool tries to find pcap packet headers inside the
+  file, below the global header. It checks if the values are correct (or seem
+  to be correct) and tries to repair a packet if there is something wrong. 
+  .
+  To fix your pcapng files the tool loops through all packet headers that can
+  be found in the file. It checks for mandatory Section Header Block and
+  Interface Description Block and creates them if missing. Pcapfix checks for
+  correct block sizes and valid option fields. If something is wrong, invalid
+  fields are repaired (if possible) or skipped and adjusted to finally get a
+  proper pcapng file.
+  .
+  Please send any further wishes, feature requests or problems in compiling
+  and execution to ruport@f00l.de. Additionally You may send me pcap/pcapng
+  files that could not be repaired too in order to improve pcapfix and get
+  your file repaired.
+  .
+  For further information visit the pcapfix homepage at http://f00l.de/pcapfix/.
