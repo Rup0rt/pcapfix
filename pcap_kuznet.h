@@ -26,7 +26,7 @@
 #include "pcap.h"
 
 /* KUZNETZOV Packet Header
-   http://tcpreplay.synfin.net/doxygen_yhsiam/tcpcapinfo_8c-source.html - is there an official documentation? */
+   https://wiki.wireshark.org/Development/LibpcapFileFormat#modified-pcap */
 struct packet_hdr_kuznet_s {
   u_int32_t ts_sec;         /* timestamp seconds */
   u_int32_t ts_usec;        /* timestamp microseconds */
