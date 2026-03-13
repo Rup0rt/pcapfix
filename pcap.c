@@ -305,7 +305,7 @@ int fix_pcap(FILE *pcap, FILE *pcap_fix) {
   }
 
   /* check for data link type (http://www.tcpdump.org/linktypes.html) */
-  if (conint(global_hdr.network) <= 251) {	/* data link types are <= 251 */
+  if (conint(global_hdr.network) <= 301) {	/* data link types are <= 301 */
     if (verbose) printf("[+] Data link type: %u\n", conint(global_hdr.network));
   } else {
     hdr_integ++;
